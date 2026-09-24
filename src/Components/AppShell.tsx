@@ -1,5 +1,12 @@
 import React from 'react';
-import { View, Pressable, useWindowDimensions, ActivityIndicator } from 'react-native';
+import {
+  View,
+  Pressable,
+  StyleSheet,
+  useWindowDimensions,
+  ActivityIndicator,
+  ViewStyle,
+} from 'react-native';
 import { Link, Slot, usePathname } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { CalendarDays, Bell, LogOut, Leaf } from 'lucide-react-native';
@@ -22,23 +29,22 @@ export function AppShell() {
   const links = (desktop: boolean) =>
     navigation.map((n) => {
       const active = current.id === n.id;
+      const linkStyle: ViewStyle = desktop
+        ? StyleSheet.flatten<ViewStyle>([
+            s.row,
+            {
+              padding: 14,
+              borderRadius: 12,
+              backgroundColor: active ? theme.accent : 'transparent',
+            },
+          ])
+        : { flex: 1, alignItems: 'center', gap: 5, paddingVertical: 8, minHeight: 48 };
       return (
         <Link key={n.id} href={paths[n.id]} asChild>
           <Pressable
             accessibilityLabel={n.label}
             accessibilityState={{ selected: active }}
-            style={
-              desktop
-                ? [
-                    s.row,
-                    {
-                      padding: 14,
-                      borderRadius: 12,
-                      backgroundColor: active ? theme.accent : 'transparent',
-                    },
-                  ]
-                : { flex: 1, alignItems: 'center', gap: 5, paddingVertical: 8, minHeight: 48 }
-            }
+            style={linkStyle}
           >
             <n.icon size={20} color={active ? theme.primary : theme.muted} />
             <T bold={active} size={desktop ? 13 : 10} color={active ? theme.primary : theme.muted}>
