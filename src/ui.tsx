@@ -26,6 +26,43 @@ export interface CardProps {
 export const ThemeContext = createContext(palettes[0]);
 export const useTheme = () => useContext(ThemeContext);
 
+function WebPageEntrance({ children }: { children: React.ReactNode }) {
+  const [visible, setVisible] = React.useState(false);
+
+  React.useEffect(() => {
+    const frameId = requestAnimationFrame(() => setVisible(true));
+    return () => cancelAnimationFrame(frameId);
+  }, []);
+
+  return (
+    <View
+      style={
+        {
+          opacity: visible ? 1 : 0,
+          transform: [{ translateY: visible ? 0 : 12 }],
+          transition: 'opacity 260ms ease-out, transform 260ms ease-out',
+        } as any
+      }
+    >
+      {children}
+    </View>
+  );
+}
+
+export function PageEntrance({ children }: { children: React.ReactNode }) {
+  if (Platform.OS === 'web') return <WebPageEntrance>{children}</WebPageEntrance>;
+
+  return (
+    <MotiView
+      from={{ opacity: 0, translateY: 12 }}
+      animate={{ opacity: 1, translateY: 0 }}
+      transition={{ type: 'timing', duration: 260 }}
+    >
+      {children}
+    </MotiView>
+  );
+}
+
 export function ThemedText({
   children,
   size = 14,

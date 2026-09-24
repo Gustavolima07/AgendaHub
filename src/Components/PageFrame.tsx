@@ -1,6 +1,6 @@
 import React from 'react';
 import { ScrollView, View, useWindowDimensions } from 'react-native';
-import { ThemedText } from '../ui';
+import { PageEntrance, ThemedText } from '../ui';
 import { navigation, tabSubtitles, NavId } from '../Router/navigation';
 export function PageFrame({ id, children }: { id: NavId | 'help'; children: React.ReactNode }) {
   const { width } = useWindowDimensions();
@@ -16,10 +16,14 @@ export function PageFrame({ id, children }: { id: NavId | 'help'; children: Reac
             <ThemedText size={29} bold>
               {page?.label || 'Central de ajuda'}
             </ThemedText>
-            <ThemedText muted>{id === 'help' ? 'Encontre orientações para cada recurso do aplicativo.' : tabSubtitles[id]}</ThemedText>
+            <ThemedText muted>
+              {id === 'help'
+                ? 'Encontre orientações para cada recurso do aplicativo.'
+                : tabSubtitles[id]}
+            </ThemedText>
           </View>
         )}
-        {children}
+        <PageEntrance>{children}</PageEntrance>
       </View>
     </ScrollView>
   );
