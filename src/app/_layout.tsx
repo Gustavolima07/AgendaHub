@@ -1,6 +1,6 @@
 import React from 'react';
-import { ActivityIndicator, View } from 'react-native';
-import { Stack } from 'expo-router';
+import { ActivityIndicator, Platform, View } from 'react-native';
+import { Redirect, Slot, Stack, usePathname } from 'expo-router';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -11,6 +11,7 @@ import { useTheme, contrast } from '../ui';
 function Routes() {
   const { user, loading } = useStore();
   const theme = useTheme();
+  const pathname = usePathname();
   if (loading)
     return (
       <View
@@ -27,17 +28,30 @@ function Routes() {
   return (
     <>
       <StatusBar style={contrast(theme.background) === '#FFFFFF' ? 'light' : 'dark'} />
-      <Stack
-        screenOptions={{ headerShown: false, contentStyle: { backgroundColor: theme.background } }}
-      >
-        <Stack.Protected guard={!!user}>
-          <Stack.Screen name="(workspace)" />
-        </Stack.Protected>
-        <Stack.Protected guard={!user}>
-          <Stack.Screen name="login" />
-        </Stack.Protected>
-        <Stack.Screen name="+not-found" />
-      </Stack>
+      {Platform.OS === 'web' ? (
+        !user && pathname !== '/login' ? (
+          <Redirect href="/login" />
+        ) : user && pathname === '/login' ? (
+          <Redirect href="/" />
+        ) : (
+          <Slot />
+        )
+      ) : (
+        <Stack
+          screenOptions={{
+            headerShown: false,
+            contentStyle: { backgroundColor: theme.background },
+          }}
+        >
+          <Stack.Protected guard={!!user}>
+            <Stack.Screen name="(workspace)" />
+          </Stack.Protected>
+          <Stack.Protected guard={!user}>
+            <Stack.Screen name="login" />
+          </Stack.Protected>
+          <Stack.Screen name="+not-found" />
+        </Stack>
+      )}
     </>
   );
 }
