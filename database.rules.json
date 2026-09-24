@@ -1,0 +1,39 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+    "users": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid && newData.exists()",
+        "products": {
+          "$id": {
+            ".validate": "newData.hasChildren(['id','name','type','quantity','price']) && newData.child('id').val() === $id && newData.child('name').isString() && newData.child('name').val().length > 0 && newData.child('name').val().length <= 200 && newData.child('type').isString() && newData.child('quantity').isNumber() && newData.child('quantity').val() >= 0 && newData.child('quantity').val() % 1 === 0 && newData.child('price').isNumber() && newData.child('price').val() >= 0"
+          }
+        },
+        "clients": {
+          "$id": {
+            ".validate": "newData.hasChildren(['id','name','address']) && newData.child('id').val() === $id && newData.child('name').isString() && newData.child('name').val().length > 0 && newData.child('address').isString()"
+          }
+        },
+        "appointments": {
+          "$id": {
+            ".validate": "newData.hasChildren(['id','title','date','time','duration','status']) && newData.child('id').val() === $id && newData.child('title').isString() && newData.child('date').isString() && newData.child('time').isString() && newData.child('duration').isNumber() && newData.child('duration').val() >= 5 && (newData.child('status').val() === 'scheduled' || newData.child('status').val() === 'done' || newData.child('status').val() === 'cancelled')"
+          }
+        },
+        "deliveries": {
+          "$id": {
+            ".validate": "newData.hasChildren(['id','clientId','address','date','time','duration','status','lines']) && newData.child('id').val() === $id && newData.child('address').isString() && newData.child('address').val().length > 0 && newData.child('date').isString() && newData.child('time').isString() && newData.child('duration').isNumber() && newData.child('duration').val() >= 5 && (newData.child('status').val() === 'pending' || newData.child('status').val() === 'delivered' || newData.child('status').val() === 'cancelled')",
+            "lines": {
+              "$line": {
+                ".validate": "newData.hasChildren(['productId','name','type','quantity','price']) && newData.child('quantity').isNumber() && newData.child('quantity').val() > 0 && newData.child('quantity').val() % 1 === 0 && newData.child('price').isNumber() && newData.child('price').val() >= 0"
+              }
+            }
+          }
+        },
+        "settings": { ".validate": "newData.hasChild('palette')" },
+        "$other": { ".validate": false }
+      }
+    }
+  }
+}

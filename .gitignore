@@ -39,3 +39,15 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# Local logs, credentials and test artifacts
+.env
+.env.*
+!.env.example
+firebase-debug.log
+database-debug.log
+ui-debug.log
+*-debug.log
+.firebase/
+artifacts/
+*.service-account.json
