@@ -3,13 +3,23 @@ import { View, Pressable, Switch } from 'react-native';
 import { Check, Palette as PaletteIcon, Bell, User } from 'lucide-react-native';
 import { Palette } from '../types';
 import { useStore } from '../store';
-import { T, Card, Button, Field, ThemeContext, s, Badge, useTheme } from '../ui';
+import {
+  ThemedText,
+  Card,
+  Button,
+  Field,
+  ThemeContext,
+  layoutStyles,
+  interactiveZoom,
+  Badge,
+  useTheme,
+} from '../ui';
 import { palettes, uid } from '../domain';
 import { enableNotifications } from '../notifications';
 export function Settings({ notify }: { notify: (s: string) => void }) {
   const { account, mutate, user } = useStore(),
-    t = useTheme(),
-    [preview, setPreview] = useState<Palette>(t),
+    theme = useTheme(),
+    [preview, setPreview] = useState<Palette>(theme),
     [custom, setCustom] = useState(false),
     [name, setName] = useState(account.settings.name || user?.displayName || ''),
     [busy, setBusy] = useState(false);
@@ -20,7 +30,7 @@ export function Settings({ notify }: { notify: (s: string) => void }) {
     preview.text,
     preview.muted,
     preview.accent,
-  ].every((c) => /^#[0-9a-f]{6}$/i.test(c));
+  ].every((colorHex) => /^#[0-9a-f]{6}$/i.test(colorHex));
   async function apply() {
     if (!valid || !preview.name.trim())
       return notify('Preencha o nome e cores hexadecimais válidas (#RRGGBB).');
@@ -42,53 +52,56 @@ export function Settings({ notify }: { notify: (s: string) => void }) {
     }
   }
   return (
-    <View style={s.stack}>
+    <View style={layoutStyles.stack}>
       <Card>
-        <View style={s.row}>
-          <PaletteIcon color={t.primary} />
-          <T bold size={20}>
+        <View style={layoutStyles.row}>
+          <PaletteIcon color={theme.primary} />
+          <ThemedText bold size={20}>
             Um espaço com a sua cara
-          </T>
+          </ThemedText>
         </View>
-        <T muted>Escolha uma paleta e veja como o aplicativo ficará antes de aplicar.</T>
-        <View style={s.wrap}>
-          {[...palettes, ...account.settings.palettes].map((p) => (
+        <ThemedText muted>
+          Escolha uma paleta e veja como o aplicativo ficará antes de aplicar.
+        </ThemedText>
+        <View style={layoutStyles.wrap}>
+          {[...palettes, ...account.settings.palettes].map((palette) => (
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel={`Prévia ${p.name}`}
-              key={p.id}
+              accessibilityLabel={`Prévia ${palette.name}`}
+              key={palette.id}
               onPress={() => {
-                setPreview(p);
+                setPreview(palette);
                 setCustom(false);
               }}
-              style={{
+              style={({ pressed, hovered }: any) => ({
                 width: 155,
                 padding: 14,
                 borderRadius: 14,
-                borderColor: preview.id === p.id ? t.primary : t.muted + '33',
+                borderColor: preview.id === palette.id ? theme.primary : theme.muted + '33',
                 borderWidth: 2,
                 gap: 10,
-              }}
+                ...interactiveZoom(pressed, hovered, 0.975, 1.025),
+              })}
             >
-              <View style={s.row}>
-                {[p.primary, p.accent, p.background].map((c, i) => (
+              <View style={layoutStyles.row}>
+                {[palette.primary, palette.accent, palette.background].map((colorHex, index) => (
                   <View
-                    key={i}
+                    key={index}
                     style={{
                       width: 28,
                       height: 28,
                       borderRadius: 14,
-                      backgroundColor: c,
+                      backgroundColor: colorHex,
                       borderWidth: 1,
                       borderColor: '#00000015',
                     }}
                   />
                 ))}
               </View>
-              <T bold size={13}>
-                {p.name}
-                {t.id === p.id ? ' • atual' : ''}
-              </T>
+              <ThemedText bold size={13}>
+                {palette.name}
+                {theme.id === palette.id ? ' • atual' : ''}
+              </ThemedText>
             </Pressable>
           ))}
         </View>
@@ -97,19 +110,19 @@ export function Settings({ notify }: { notify: (s: string) => void }) {
           label="Criar minha paleta"
           onPress={() => {
             setCustom(true);
-            setPreview({ ...t, id: uid(), name: 'Minha paleta' });
+            setPreview({ ...theme, id: uid(), name: 'Minha paleta' });
           }}
         />
         {custom && (
-          <View style={s.stack}>
+          <View style={layoutStyles.stack}>
             <Field
               label="Nome da paleta"
               value={preview.name}
               onChange={(v) => setPreview({ ...preview, name: v })}
             />
-            <View style={s.wrap}>
+            <View style={layoutStyles.wrap}>
               {(['primary', 'background', 'surface', 'text', 'muted', 'accent'] as const).map(
-                (key, i) => (
+                (key, colorIndex) => (
                   <View key={key} style={{ width: 180 }}>
                     <Field
                       label={
@@ -120,7 +133,7 @@ export function Settings({ notify }: { notify: (s: string) => void }) {
                           'Texto',
                           'Texto secundário',
                           'Destaque',
-                        ][i]
+                        ][colorIndex]
                       }
                       value={preview[key]}
                       onChange={(v) => setPreview({ ...preview, [key]: v })}
@@ -131,7 +144,7 @@ export function Settings({ notify }: { notify: (s: string) => void }) {
             </View>
           </View>
         )}
-        <T bold>Prévia ao vivo</T>
+        <ThemedText bold>Prévia ao vivo</ThemedText>
         {valid ? (
           <ThemeContext.Provider value={preview}>
             <View
@@ -144,24 +157,24 @@ export function Settings({ notify }: { notify: (s: string) => void }) {
                 borderColor: preview.muted + '40',
               }}
             >
-              <View style={s.between}>
-                <T size={22} bold>
+              <View style={layoutStyles.between}>
+                <ThemedText size={22} bold>
                   Olá, {name.split(' ')[0] || 'você'} ☀
-                </T>
+                </ThemedText>
                 <Badge>Hoje</Badge>
               </View>
               <Card>
-                <T bold>Seu dia está organizado</T>
-                <T muted>09:00 • Entrega programada</T>
+                <ThemedText bold>Seu dia está organizado</ThemedText>
+                <ThemedText muted>09:00 • Entrega programada</ThemedText>
                 <Button label="Ver minha agenda" icon={Check} onPress={() => {}} />
               </Card>
-              <T size={12} muted>
+              <ThemedText size={12} muted>
                 Exemplo de cores, textos e botões do aplicativo.
-              </T>
+              </ThemedText>
             </View>
           </ThemeContext.Provider>
         ) : (
-          <T color="#B33D3D">Use cores no formato #RRGGBB para visualizar.</T>
+          <ThemedText color="#B33D3D">Use cores no formato #RRGGBB para visualizar.</ThemedText>
         )}
         <Button
           label={busy ? 'Aplicando…' : 'Aplicar esta paleta'}
@@ -170,13 +183,13 @@ export function Settings({ notify }: { notify: (s: string) => void }) {
         />
       </Card>
       <Card>
-        <View style={s.row}>
-          <User color={t.primary} />
-          <T size={20} bold>
+        <View style={layoutStyles.row}>
+          <User color={theme.primary} />
+          <ThemedText size={20} bold>
             Minha conta
-          </T>
+          </ThemedText>
         </View>
-        <T muted>{user?.email}</T>
+        <ThemedText muted>{user?.email}</ThemedText>
         <Field label="Como você quer ser chamado?" value={name} onChange={setName} />
         <Button
           secondary
@@ -194,10 +207,10 @@ export function Settings({ notify }: { notify: (s: string) => void }) {
         />
       </Card>
       <Card>
-        <View style={s.between}>
-          <View style={s.row}>
-            <Bell color={t.primary} />
-            <T bold>Notificações no aparelho</T>
+        <View style={layoutStyles.between}>
+          <View style={layoutStyles.row}>
+            <Bell color={theme.primary} />
+            <ThemedText bold>Notificações no aparelho</ThemedText>
           </View>
           <Switch
             accessibilityLabel="Ativar notificações"
@@ -215,11 +228,11 @@ export function Settings({ notify }: { notify: (s: string) => void }) {
             }}
           />
         </View>
-        <T muted>
+        <ThemedText muted>
           O painel sempre mostra as próximas atividades. No Android/iOS, você também pode receber
           lembretes locais, mesmo com o app fechado. Abra o aplicativo após alterações feitas em
           outro aparelho para atualizar os lembretes.
-        </T>
+        </ThemedText>
       </Card>
     </View>
   );

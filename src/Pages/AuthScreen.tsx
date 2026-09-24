@@ -8,7 +8,7 @@ import {
 } from 'firebase/auth';
 import { CalendarDays, ArrowRight, Check, Leaf } from 'lucide-react-native';
 import { auth } from '../firebase';
-import { T, Field, Button, Chips, Card, s, useTheme } from '../ui';
+import { ThemedText, Field, Button, Chips, Card, layoutStyles, useTheme } from '../ui';
 export function AuthScreen() {
   const t = useTheme(),
     { width } = useWindowDimensions(),
@@ -74,24 +74,28 @@ export function AuthScreen() {
         }}
       >
         <View style={{ flex: 1, gap: 28, width: '100%' }}>
-          <View style={s.row}>
+          <View style={layoutStyles.row}>
             <View style={{ backgroundColor: t.primary, padding: 12, borderRadius: 16 }}>
               <CalendarDays size={28} color="white" />
             </View>
-            <T bold size={26}>
+            <ThemedText bold size={26}>
               AgendaHub
-              <T color={t.primary} size={26}>
+              <ThemedText color={t.primary} size={26}>
                 .
-              </T>
-            </T>
+              </ThemedText>
+            </ThemedText>
           </View>
           <View style={{ gap: 18 }}>
-            <T size={width > 800 ? 48 : 34} bold style={{ lineHeight: width > 800 ? 56 : 42 }}>
+            <ThemedText
+              size={width > 800 ? 48 : 34}
+              bold
+              style={{ lineHeight: width > 800 ? 56 : 42 }}
+            >
               Seu dia em ordem. Seu negócio em movimento.
-            </T>
-            <T muted size={17}>
+            </ThemedText>
+            <ThemedText muted size={17}>
               Clientes, produtos, compromissos e entregas. Tudo conectado, em um só lugar.
-            </T>
+            </ThemedText>
           </View>
           <View style={{ gap: 14 }}>
             {[
@@ -99,34 +103,34 @@ export function AuthScreen() {
               'Entregas planejadas, sem esquecimentos',
               'Seu espaço, com as suas cores',
             ].map((x) => (
-              <View key={x} style={s.row}>
+              <View key={x} style={layoutStyles.row}>
                 <Check size={18} color={t.primary} />
-                <T muted>{x}</T>
+                <ThemedText muted>{x}</ThemedText>
               </View>
             ))}
           </View>
-          <View style={s.row}>
+          <View style={layoutStyles.row}>
             <Leaf size={17} color={t.primary} />
-            <T size={12} muted>
+            <ThemedText size={12} muted>
               Mais organização. Mais espaço para crescer.
-            </T>
+            </ThemedText>
           </View>
         </View>
         <Card style={{ width: width > 800 ? 400 : '100%', padding: 30, gap: 22 }}>
-          <T size={25} bold>
+          <ThemedText size={25} bold>
             {mode === 'signup'
               ? 'Vamos começar?'
               : mode === 'reset'
                 ? 'Recuperar acesso'
                 : 'Bem-vindo de volta'}
-          </T>
-          <T muted>
+          </ThemedText>
+          <ThemedText muted>
             {mode === 'signup'
               ? 'Crie sua conta e organize seu próximo passo.'
               : mode === 'reset'
                 ? 'Enviaremos as instruções para seu e-mail.'
                 : 'Entre para cuidar do que vem a seguir.'}
-          </T>
+          </ThemedText>
           <Chips
             options={[
               { id: 'login', label: 'Entrar' },
@@ -149,7 +153,9 @@ export function AuthScreen() {
               placeholder={mode === 'signup' ? 'Pelo menos 8 caracteres' : 'Sua senha'}
             />
           )}{' '}
-          {!!message && <T color={mode === 'reset' ? '#22634C' : '#B33D3D'}>{message}</T>}
+          {!!message && (
+            <ThemedText color={mode === 'reset' ? '#22634C' : '#B33D3D'}>{message}</ThemedText>
+          )}
           <Button
             label={
               busy
@@ -175,9 +181,9 @@ export function AuthScreen() {
               }}
             />
           )}
-          <T size={11} muted style={{ textAlign: 'center' }}>
+          <ThemedText size={11} muted style={{ textAlign: 'center' }}>
             Seus dados ficam vinculados à sua conta.
-          </T>
+          </ThemedText>
         </Card>
       </View>
     </ScrollView>

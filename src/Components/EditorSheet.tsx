@@ -2,7 +2,17 @@ import React, { useState } from 'react';
 import { View, Switch } from 'react-native';
 import { Trash2 } from 'lucide-react-native';
 import { useStore } from '../store';
-import { T, Field, Button, Chips, Calendar, Sheet, s, IconButton, useTheme } from '../ui';
+import {
+  ThemedText,
+  Field,
+  Button,
+  Chips,
+  Calendar,
+  Sheet,
+  layoutStyles,
+  IconButton,
+  useTheme,
+} from '../ui';
 import { Client, Product, Appointment, Delivery, Line } from '../types';
 import {
   uid,
@@ -23,15 +33,15 @@ export function LineEditor({ lines, onChange }: { lines: Line[]; onChange: (l: L
   const { account } = useStore();
   const products = Object.values(account.products).filter((p) => !p.archived);
   return (
-    <View style={s.stack}>
-      <T bold>Produtos e quantidades</T>
+    <View style={layoutStyles.stack}>
+      <ThemedText bold>Produtos e quantidades</ThemedText>
       {lines.map((l, i) => (
-        <View key={l.productId} style={s.row}>
+        <View key={l.productId} style={layoutStyles.row}>
           <View style={{ flex: 1 }}>
-            <T bold>{l.name}</T>
-            <T size={12} muted>
+            <ThemedText bold>{l.name}</ThemedText>
+            <ThemedText size={12} muted>
               {l.type} • {money(l.price)}
-            </T>
+            </ThemedText>
           </View>
           <View style={{ width: 85 }}>
             <Field
@@ -66,7 +76,9 @@ export function LineEditor({ lines, onChange }: { lines: Line[]; onChange: (l: L
           ]);
         }}
       />
-      {!products.length && <T muted>Cadastre um produto primeiro na aba Produtos.</T>}
+      {!products.length && (
+        <ThemedText muted>Cadastre um produto primeiro na aba Produtos.</ThemedText>
+      )}
     </View>
   );
 }
@@ -245,34 +257,34 @@ export function EditorSheet({
         <>
           {field('name', 'Nome do produto')}
           {field('type', 'Tipo / categoria')}
-          <View style={s.row}>
+          <View style={layoutStyles.row}>
             {field('quantity', 'Quantidade em estoque', true)}
             {field('price', 'Preço unitário (R$)', true)}
           </View>
-          <T size={12} muted>
+          <ThemedText size={12} muted>
             O estoque é baixado ao concluir a entrega. As entregas pendentes reservam as
             quantidades.
-          </T>
+          </ThemedText>
         </>
       )}
       {editor.kind === 'client' && (
         <>
           {field('name', 'Nome do cliente')}
-          <View style={s.row}>
+          <View style={layoutStyles.row}>
             {field('phone', 'Telefone')}
             {field('email', 'E-mail')}
           </View>
           {field('address', 'Endereço completo para entrega', false, true)}
           {field('notes', 'Observações', false, true)}
-          <View style={s.row}>
+          <View style={layoutStyles.row}>
             {field('latitude', 'Latitude (opcional)', true)}
             {field('longitude', 'Longitude (opcional)', true)}
           </View>
-          <T muted size={12}>
+          <ThemedText muted size={12}>
             Coordenadas são opcionais e permitem sugerir uma ordem de paradas por proximidade.
-          </T>
-          <View style={s.between}>
-            <T bold>Produtos mensais fixos</T>
+          </ThemedText>
+          <View style={layoutStyles.between}>
+            <ThemedText bold>Produtos mensais fixos</ThemedText>
             <Switch
               accessibilityLabel="Produtos mensais fixos"
               value={monthly}
@@ -282,13 +294,13 @@ export function EditorSheet({
           </View>
           {monthly && (
             <>
-              <View style={s.row}>
+              <View style={layoutStyles.row}>
                 {field('day', 'Dia do mês (1–31)', true)}
                 {field('time', 'Horário fixo (HH:mm)')}
               </View>
-              <T muted size={12}>
+              <ThemedText muted size={12}>
                 Meses mais curtos usam o último dia. Gere as entregas do mês na aba Entregas.
-              </T>
+              </ThemedText>
               <LineEditor lines={form.monthly || []} onChange={(l) => update('monthly', l)} />
             </>
           )}
@@ -297,7 +309,7 @@ export function EditorSheet({
       {(editor.kind === 'appointment' || editor.kind === 'delivery') && (
         <>
           {editor.kind === 'appointment' && field('title', 'Título do compromisso')}
-          <T bold>Cliente {editor.kind === 'appointment' ? '(opcional)' : ''}</T>
+          <ThemedText bold>Cliente {editor.kind === 'appointment' ? '(opcional)' : ''}</ThemedText>
           <Chips
             options={[
               ...(editor.kind === 'appointment' ? [{ id: '', label: 'Sem cliente' }] : []),
@@ -313,26 +325,26 @@ export function EditorSheet({
               }));
             }}
           />
-          {!clients.length && <T muted>Cadastre clientes na aba Clientes.</T>}
+          {!clients.length && <ThemedText muted>Cadastre clientes na aba Clientes.</ThemedText>}
           {editor.kind === 'delivery' && (
             <>
               {field('address', 'Endereço desta entrega', false, true)}
               <LineEditor lines={form.lines || []} onChange={(l) => update('lines', l)} />
             </>
           )}
-          <T bold>Data • {form.date.split('-').reverse().join('/')}</T>
+          <ThemedText bold>Data • {form.date.split('-').reverse().join('/')}</ThemedText>
           <Calendar
             value={form.date}
             onChange={(d) => update('date', d)}
             marked={Object.values(account.deliveries).map((d) => d.date)}
           />
-          <View style={s.row}>
+          <View style={layoutStyles.row}>
             {field('time', 'Horário (HH:mm)')}
             {field('duration', 'Duração (minutos)', true)}
           </View>
-          <T size={12} muted>
+          <ThemedText size={12} muted>
             Horários livres entre 08h e 18h
-          </T>
+          </ThemedText>
           <Chips
             options={availableSlots(account, form.date, number(String(form.duration)) || 30).map(
               (x) => ({ id: x, label: x }),
@@ -340,7 +352,7 @@ export function EditorSheet({
             value={form.time}
             onChange={(v) => update('time', v)}
           />
-          <T bold>Lembrar antes</T>
+          <ThemedText bold>Lembrar antes</ThemedText>
           <Chips
             options={[
               { id: '0', label: 'No horário' },
@@ -354,7 +366,7 @@ export function EditorSheet({
           {field('notes', 'Observações', false, true)}
         </>
       )}
-      {!!error && <T color="#B33D3D">{error}</T>}
+      {!!error && <ThemedText color="#B33D3D">{error}</ThemedText>}
       <Button label={busy ? 'Salvando…' : 'Salvar'} disabled={busy} onPress={save} />
     </Sheet>
   );

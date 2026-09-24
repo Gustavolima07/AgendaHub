@@ -4,7 +4,7 @@ import { router } from 'expo-router';
 import { X } from 'lucide-react-native';
 import { Editor, EditorSheet } from '../Components/EditorSheet';
 import { PageProps } from '../Pages/types';
-import { T, s, ThemeContext, Sheet, Card } from '../ui';
+import { ThemedText, layoutStyles, interactiveZoom, ThemeContext, Sheet, Card } from '../ui';
 import { useStore } from '../store';
 import { activities, localDate, dateLabel, emptyAccount } from '../domain';
 import { syncNotifications } from '../notifications';
@@ -67,17 +67,21 @@ export function AppActionsProvider({ children }: { children: React.ReactNode }) 
           >
             <View
               style={[
-                s.row,
+                layoutStyles.row,
                 { backgroundColor: theme.text, padding: 16, borderRadius: 14, maxWidth: 680 },
               ]}
             >
-              <T color={theme.surface} style={{ flex: 1 }}>
+              <ThemedText color={theme.surface} style={{ flex: 1 }}>
                 {toast}
-              </T>
+              </ThemedText>
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="Fechar aviso"
                 onPress={() => setToast('')}
+                style={({ pressed, hovered }: any) => ({
+                  opacity: pressed ? 0.72 : 1,
+                  ...interactiveZoom(pressed, hovered, 0.9, 1.08),
+                })}
               >
                 <X color={theme.surface} size={18} />
               </Pressable>
@@ -89,23 +93,23 @@ export function AppActionsProvider({ children }: { children: React.ReactNode }) 
         )}
         {user && alerts && (
           <Sheet title="Seus lembretes" onClose={() => setAlerts(false)}>
-            <T muted>Atividades pendentes e próximas 24 horas.</T>
+            <ThemedText muted>Atividades pendentes e próximas 24 horas.</ThemedText>
             {upcoming.length ? (
               upcoming.map((item) => (
                 <Card key={item.id}>
-                  <T bold>{item.label}</T>
-                  <T muted>
+                  <ThemedText bold>{item.label}</ThemedText>
+                  <ThemedText muted>
                     {dateLabel(item.date)} • {item.time}
-                  </T>
-                  <T size={12} color={theme.primary}>
+                  </ThemedText>
+                  <ThemedText size={12} color={theme.primary}>
                     {localDate(item.date, item.time).getTime() < now
                       ? 'Horário passado • revise o status'
                       : 'Em breve'}
-                  </T>
+                  </ThemedText>
                 </Card>
               ))
             ) : (
-              <T>Nenhum lembrete por enquanto. Seu dia está em ordem.</T>
+              <ThemedText>Nenhum lembrete por enquanto. Seu dia está em ordem.</ThemedText>
             )}
           </Sheet>
         )}

@@ -26,7 +26,7 @@ export interface CardProps {
 export const ThemeContext = createContext(palettes[0]);
 export const useTheme = () => useContext(ThemeContext);
 
-export function T({
+export function ThemedText({
   children,
   size = 14,
   bold = false,
@@ -41,14 +41,14 @@ export function T({
   color?: string;
   style?: TextStyle;
 }) {
-  const t = useTheme();
+  const theme = useTheme();
   return (
     <Text
       style={{
         fontSize: size,
         lineHeight: size * 1.45,
         fontWeight: bold ? '700' : '400',
-        color: color || (muted ? t.muted : t.text),
+        color: color || (muted ? theme.muted : theme.text),
         ...style,
       }}
     >
@@ -93,7 +93,7 @@ export function Button({
   secondary = false,
   small = false,
   disabled = false,
-  icon: Icon,
+  icon: IconComponent,
 }: {
   label: string;
   onPress: () => void;
@@ -102,8 +102,8 @@ export function Button({
   disabled?: boolean;
   icon?: any;
 }) {
-  const t = useTheme();
-  const color = secondary ? t.primary : contrast(t.primary);
+  const theme = useTheme();
+  const color = secondary ? theme.primary : contrast(theme.primary);
   return (
     <Pressable
       accessibilityRole="button"
@@ -111,7 +111,7 @@ export function Button({
       disabled={disabled}
       onPress={onPress}
       style={({ pressed, hovered }: any) => ({
-        backgroundColor: secondary ? t.accent : t.primary,
+        backgroundColor: secondary ? theme.accent : theme.primary,
         paddingVertical: small ? 9 : 13,
         paddingHorizontal: small ? 12 : 18,
         borderRadius: 12,
@@ -120,20 +120,20 @@ export function Button({
         justifyContent: 'center',
         alignItems: 'center',
         opacity: disabled ? 0.45 : pressed ? 0.7 : 1,
-        transform: [{ scale: pressed ? 0.98 : 1 }],
+        ...interactiveZoom(pressed, hovered),
         ...(hovered ? { filter: 'brightness(0.96)' } : {}),
       })}
     >
-      {Icon && <Icon size={small ? 16 : 18} color={color} />}
-      <T color={color} bold size={small ? 12 : 14}>
+      {IconComponent && <IconComponent size={small ? 16 : 18} color={color} />}
+      <ThemedText color={color} bold size={small ? 12 : 14}>
         {label}
-      </T>
+      </ThemedText>
     </Pressable>
   );
 }
 
 export function IconButton({
-  icon: Icon,
+  icon: IconComponent,
   label,
   onPress,
   disabled = false,
@@ -143,21 +143,22 @@ export function IconButton({
   onPress: () => void;
   disabled?: boolean;
 }) {
-  const t = useTheme();
+  const theme = useTheme();
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={label}
       disabled={disabled}
       onPress={onPress}
-      style={({ pressed }) => ({
+      style={({ pressed, hovered }: any) => ({
         padding: 10,
         borderRadius: 10,
-        opacity: disabled ? 0.3 : pressed ? 0.6 : 1,
-        backgroundColor: t.background,
+        opacity: disabled ? 0.3 : pressed ? 0.72 : 1,
+        backgroundColor: theme.background,
+        ...interactiveZoom(pressed, !disabled && hovered, 0.92, 1.06),
       })}
     >
-      <Icon size={18} color={t.primary} />
+      <IconComponent size={18} color={theme.primary} />
     </Pressable>
   );
 }
@@ -173,32 +174,32 @@ export function Field({
 }: {
   label: string;
   value: string;
-  onChange: (s: string) => void;
+  onChange: (nextText: string) => void;
   placeholder?: string;
   numeric?: boolean;
   multiline?: boolean;
   secure?: boolean;
 }) {
-  const t = useTheme();
+  const theme = useTheme();
   return (
     <View style={{ gap: 7, flex: 1, minWidth: 100 }}>
-      <T size={12} bold>
+      <ThemedText size={12} bold>
         {label}
-      </T>
+      </ThemedText>
       <TextInput
         accessibilityLabel={label}
         value={value}
         onChangeText={onChange}
         placeholder={placeholder}
-        placeholderTextColor={t.muted}
+        placeholderTextColor={theme.muted}
         secureTextEntry={secure}
         keyboardType={numeric ? 'decimal-pad' : 'default'}
         autoCapitalize={secure || label.toLowerCase().includes('e-mail') ? 'none' : 'sentences'}
         multiline={multiline}
         style={{
-          backgroundColor: t.background,
-          color: t.text,
-          borderColor: t.muted + '40',
+          backgroundColor: theme.background,
+          color: theme.text,
+          borderColor: theme.muted + '40',
           borderWidth: 1,
           borderRadius: 10,
           padding: 13,
@@ -218,29 +219,35 @@ export function Chips({
 }: {
   options: { id: string; label: string }[];
   value: string;
-  onChange: (s: string) => void;
+  onChange: (nextOptionId: string) => void;
 }) {
-  const t = useTheme();
+  const theme = useTheme();
   return (
-    <View style={s.wrap}>
-      {options.map((o) => (
+    <View style={layoutStyles.wrap}>
+      {options.map((option) => (
         <Pressable
-          key={o.id}
+          key={option.id}
           accessibilityRole="button"
-          accessibilityState={{ selected: value === o.id }}
-          onPress={() => onChange(o.id)}
-          style={{
+          accessibilityState={{ selected: value === option.id }}
+          onPress={() => onChange(option.id)}
+          style={({ pressed, hovered }: any) => ({
             paddingHorizontal: 13,
             paddingVertical: 9,
             borderRadius: 10,
-            backgroundColor: value === o.id ? t.primary : t.background,
+            backgroundColor: value === option.id ? theme.primary : theme.background,
             borderWidth: 1,
-            borderColor: value === o.id ? t.primary : t.muted + '25',
-          }}
+            borderColor: value === option.id ? theme.primary : theme.muted + '25',
+            opacity: pressed ? 0.82 : 1,
+            ...interactiveZoom(pressed, hovered, 0.96, 1.025),
+          })}
         >
-          <T size={12} bold={value === o.id} color={value === o.id ? contrast(t.primary) : t.muted}>
-            {o.label}
-          </T>
+          <ThemedText
+            size={12}
+            bold={value === option.id}
+            color={value === option.id ? contrast(theme.primary) : theme.muted}
+          >
+            {option.label}
+          </ThemedText>
         </Pressable>
       ))}
     </View>
@@ -248,20 +255,20 @@ export function Chips({
 }
 
 export function Badge({ children }: { children: React.ReactNode }) {
-  const t = useTheme();
+  const theme = useTheme();
   return (
     <View
       style={{
         alignSelf: 'flex-start',
-        backgroundColor: t.accent,
+        backgroundColor: theme.accent,
         paddingHorizontal: 9,
         paddingVertical: 4,
         borderRadius: 7,
       }}
     >
-      <T size={11} color={t.primary} bold>
+      <ThemedText size={11} color={theme.primary} bold>
         {children}
-      </T>
+      </ThemedText>
     </View>
   );
 }
@@ -275,18 +282,18 @@ export function Empty({
   description: string;
   action?: () => void;
 }) {
-  const t = useTheme();
+  const theme = useTheme();
   return (
     <View style={{ padding: 30, alignItems: 'center', gap: 12 }}>
-      <View style={{ padding: 16, backgroundColor: t.accent, borderRadius: 18 }}>
-        <Plus color={t.primary} size={25} />
+      <View style={{ padding: 16, backgroundColor: theme.accent, borderRadius: 18 }}>
+        <Plus color={theme.primary} size={25} />
       </View>
-      <T bold size={17}>
+      <ThemedText bold size={17}>
         {title}
-      </T>
-      <T muted style={{ textAlign: 'center', maxWidth: 350 }}>
+      </ThemedText>
+      <ThemedText muted style={{ textAlign: 'center', maxWidth: 350 }}>
         {description}
-      </T>
+      </ThemedText>
       {action && <Button label="Adicionar agora" onPress={action} secondary />}
     </View>
   );
@@ -301,7 +308,7 @@ export function Sheet({
   children: React.ReactNode;
   onClose: () => void;
 }) {
-  const t = useTheme();
+  const theme = useTheme();
   return (
     <Modal transparent animationType="fade" onRequestClose={onClose}>
       <KeyboardAvoidingView
@@ -319,25 +326,25 @@ export function Sheet({
             width: '100%',
             maxWidth: 680,
             maxHeight: '94%',
-            backgroundColor: t.surface,
+            backgroundColor: theme.surface,
             borderRadius: 22,
             overflow: 'hidden',
           }}
         >
           <View
             style={[
-              s.row,
+              layoutStyles.row,
               {
                 justifyContent: 'space-between',
                 padding: 22,
                 borderBottomWidth: 1,
-                borderColor: t.muted + '22',
+                borderColor: theme.muted + '22',
               },
             ]}
           >
-            <T size={22} bold>
+            <ThemedText size={22} bold>
               {title}
-            </T>
+            </ThemedText>
             <IconButton icon={X} label="Fechar" onPress={onClose} />
           </View>
           <ScrollView
@@ -359,33 +366,36 @@ export function Calendar({
   compact = false,
 }: {
   value: string;
-  onChange: (s: string) => void;
+  onChange: (nextDate: string) => void;
   marked?: string[];
   compact?: boolean;
 }) {
-  const t = useTheme(),
-    d = localDate(value),
-    first = new Date(d.getFullYear(), d.getMonth(), 1),
-    count = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate(),
+  const theme = useTheme(),
+    selectedDate = localDate(value),
+    first = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1),
+    count = new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 0).getDate(),
     offset = (first.getDay() + 6) % 7;
-  const change = (n: number) => onChange(dateKey(new Date(d.getFullYear(), d.getMonth() + n, 1)));
+  const changeMonth = (monthOffset: number) =>
+    onChange(
+      dateKey(new Date(selectedDate.getFullYear(), selectedDate.getMonth() + monthOffset, 1)),
+    );
   return (
     <View style={{ gap: 12 }}>
-      <View style={[s.row, { justifyContent: 'space-between' }]}>
-        <T bold size={15} style={{ textTransform: 'capitalize' }}>
-          {d.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}
-        </T>
-        <View style={s.row}>
-          <IconButton icon={ChevronLeft} label="Mês anterior" onPress={() => change(-1)} />
-          <IconButton icon={ChevronRight} label="Próximo mês" onPress={() => change(1)} />
+      <View style={[layoutStyles.row, { justifyContent: 'space-between' }]}>
+        <ThemedText bold size={15} style={{ textTransform: 'capitalize' }}>
+          {selectedDate.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}
+        </ThemedText>
+        <View style={layoutStyles.row}>
+          <IconButton icon={ChevronLeft} label="Mês anterior" onPress={() => changeMonth(-1)} />
+          <IconButton icon={ChevronRight} label="Próximo mês" onPress={() => changeMonth(1)} />
         </View>
       </View>
       <View style={{ flexDirection: 'row' }}>
-        {['S', 'T', 'Q', 'Q', 'S', 'S', 'D'].map((x, i) => (
-          <View key={i} style={{ width: '14.2857%', alignItems: 'center' }}>
-            <T muted size={11}>
-              {x}
-            </T>
+        {['S', 'T', 'Q', 'Q', 'S', 'S', 'D'].map((weekdayLabel, index) => (
+          <View key={index} style={{ width: '14.2857%', alignItems: 'center' }}>
+            <ThemedText muted size={11}>
+              {weekdayLabel}
+            </ThemedText>
           </View>
         ))}
       </View>
@@ -402,7 +412,12 @@ export function Calendar({
               accessibilityLabel={valid ? `Selecionar ${key}` : 'Fora do mês'}
               disabled={!valid}
               onPress={() => onChange(key)}
-              style={{ width: '14.2857%', height: compact ? 36 : 44, padding: 2 }}
+              style={({ pressed, hovered }: any) => ({
+                width: '14.2857%',
+                height: compact ? 36 : 44,
+                padding: 2,
+                ...interactiveZoom(pressed, valid && hovered, 0.94, 1.06),
+              })}
             >
               <View
                 style={{
@@ -411,23 +426,27 @@ export function Calendar({
                   justifyContent: 'center',
                   alignItems: 'center',
                   backgroundColor: selected
-                    ? t.primary
+                    ? theme.primary
                     : key === dateKey()
-                      ? t.accent
+                      ? theme.accent
                       : 'transparent',
                   gap: 2,
                 }}
               >
-                <T size={12} bold={selected} color={selected ? contrast(t.primary) : t.text}>
+                <ThemedText
+                  size={12}
+                  bold={selected}
+                  color={selected ? contrast(theme.primary) : theme.text}
+                >
                   {valid ? day : ''}
-                </T>
+                </ThemedText>
                 {valid && marked.includes(key) && (
                   <View
                     style={{
                       height: 4,
                       width: 4,
                       borderRadius: 2,
-                      backgroundColor: selected ? contrast(t.primary) : t.primary,
+                      backgroundColor: selected ? contrast(theme.primary) : theme.primary,
                     }}
                   />
                 )}
@@ -440,18 +459,32 @@ export function Calendar({
   );
 }
 
-export function contrast(hex: string) {
-  let c = hex.replace('#', '');
-  if (c.length === 3)
-    c = c
+export function contrast(hexColor: string) {
+  let normalizedHex = hexColor.replace('#', '');
+  if (normalizedHex.length === 3)
+    normalizedHex = normalizedHex
       .split('')
-      .map((x) => x + x)
+      .map((character) => character + character)
       .join('');
-  const rgb = c.match(/.{2}/g)?.map((x) => parseInt(x, 16)) || [255, 255, 255];
+  const rgb = normalizedHex.match(/.{2}/g)?.map((channel) => parseInt(channel, 16)) || [
+    255, 255, 255,
+  ];
   return rgb[0] * 0.299 + rgb[1] * 0.587 + rgb[2] * 0.114 > 160 ? '#14251C' : '#FFFFFF';
 }
 
-export const s = StyleSheet.create({
+export function interactiveZoom(
+  pressed: boolean,
+  hovered = false,
+  pressedScale = 0.97,
+  hoveredScale = 1.025,
+): ViewStyle {
+  return {
+    transform: [{ scale: pressed ? pressedScale : hovered ? hoveredScale : 1 }],
+    ...(Platform.OS === 'web' ? ({ transition: 'transform 150ms ease-out' } as any) : {}),
+  };
+}
+
+export const layoutStyles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   wrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   card: { borderRadius: 18, padding: 22, borderWidth: 1, gap: 16 },

@@ -1,6 +1,6 @@
 import { View } from 'react-native';
 import { Link } from 'expo-router';
-import { T, useTheme } from '../ui';
+import { ThemedText, useTheme } from '../ui';
 export default function NotFound() {
   const theme = useTheme();
   return (
@@ -13,9 +13,9 @@ export default function NotFound() {
         backgroundColor: theme.background,
       }}
     >
-      <T size={25} bold>
+      <ThemedText size={25} bold>
         Página não encontrada
-      </T>
+      </ThemedText>
       <Link href="/" style={{ color: theme.primary, fontSize: 16 }}>
         Voltar para o início
       </Link>

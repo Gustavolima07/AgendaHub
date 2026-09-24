@@ -1,7 +1,17 @@
 import React, { useState } from 'react';
 import { View } from 'react-native';
 import { Plus, Pencil, Archive, RotateCcw } from 'lucide-react-native';
-import { T, Card, Button, IconButton, Field, Chips, Badge, Empty, s } from '../ui';
+import {
+  ThemedText,
+  Card,
+  Button,
+  IconButton,
+  Field,
+  Chips,
+  Badge,
+  Empty,
+  layoutStyles,
+} from '../ui';
 import { useStore } from '../store';
 import { money, reserved } from '../domain';
 import { PageProps } from './types';
@@ -18,8 +28,8 @@ export function Products({ edit, notify }: PageProps) {
   );
 
   return (
-    <View style={s.stack}>
-      <View style={[s.row, { flexWrap: 'wrap' }]}>
+    <View style={layoutStyles.stack}>
+      <View style={[layoutStyles.row, { flexWrap: 'wrap' }]}>
         <Field
           label="Buscar produtos"
           value={search}
@@ -38,22 +48,22 @@ export function Products({ edit, notify }: PageProps) {
         onChange={(v) => setArchived(v === 'archived')}
       />
 
-      <View style={[s.wrap, { gap: 16 }]}>
+      <View style={[layoutStyles.wrap, { gap: 16 }]}>
         {products.map((p) => (
           <Card key={p.id} style={{ flexBasis: 280, flexGrow: 1, maxWidth: 450 }}>
             <Badge>{p.type}</Badge>
-            <T size={21} bold>
+            <ThemedText size={21} bold>
               {p.name}
-            </T>
-            <T size={25} bold>
+            </ThemedText>
+            <ThemedText size={25} bold>
               {money(p.price)}
-            </T>
-            <View style={s.between}>
-              <T muted>Estoque: {p.quantity}</T>
-              <T muted>Reservado: {reserved(account, p.id)}</T>
+            </ThemedText>
+            <View style={layoutStyles.between}>
+              <ThemedText muted>Estoque: {p.quantity}</ThemedText>
+              <ThemedText muted>Reservado: {reserved(account, p.id)}</ThemedText>
             </View>
-            <T bold>Disponível: {p.quantity - reserved(account, p.id)}</T>
-            <View style={s.row}>
+            <ThemedText bold>Disponível: {p.quantity - reserved(account, p.id)}</ThemedText>
+            <View style={layoutStyles.row}>
               <Button
                 label="Editar produto"
                 secondary

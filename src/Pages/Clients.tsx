@@ -1,7 +1,18 @@
 import React, { useState } from 'react';
 import { View } from 'react-native';
 import { Plus, MapPin, Pencil, Archive, RotateCcw } from 'lucide-react-native';
-import { T, Card, Button, IconButton, Field, Chips, Badge, Empty, Sheet, s } from '../ui';
+import {
+  ThemedText,
+  Card,
+  Button,
+  IconButton,
+  Field,
+  Chips,
+  Badge,
+  Empty,
+  Sheet,
+  layoutStyles,
+} from '../ui';
 import { useStore } from '../store';
 import { Client } from '../types';
 import { dateLabel, money } from '../domain';
@@ -36,8 +47,8 @@ export function Clients({ edit, notify }: PageProps) {
   }
 
   return (
-    <View style={s.stack}>
-      <View style={[s.row, { flexWrap: 'wrap' }]}>
+    <View style={layoutStyles.stack}>
+      <View style={[layoutStyles.row, { flexWrap: 'wrap' }]}>
         <Field
           label="Buscar clientes"
           value={search}
@@ -56,24 +67,24 @@ export function Clients({ edit, notify }: PageProps) {
         onChange={(v) => setArchived(v === 'archived')}
       />
 
-      <View style={[s.wrap, { gap: 16 }]}>
+      <View style={[layoutStyles.wrap, { gap: 16 }]}>
         {clients.map((c) => (
           <Card key={c.id} style={{ flexGrow: 1, flexBasis: 300, maxWidth: 500 }}>
-            <View style={s.between}>
-              <T size={19} bold>
+            <View style={layoutStyles.between}>
+              <ThemedText size={19} bold>
                 {c.name}
-              </T>
+              </ThemedText>
               {!!(c.monthly || []).length && <Badge>Mensal fixo</Badge>}
             </View>
-            <T muted>{c.phone || 'Telefone não informado'}</T>
-            <T muted>{c.email || 'E-mail não informado'}</T>
-            <View style={s.row}>
+            <ThemedText muted>{c.phone || 'Telefone não informado'}</ThemedText>
+            <ThemedText muted>{c.email || 'E-mail não informado'}</ThemedText>
+            <View style={layoutStyles.row}>
               <MapPin size={16} color="#79887D" />
-              <T size={13} muted style={{ flex: 1 }}>
+              <ThemedText size={13} muted style={{ flex: 1 }}>
                 {c.address || 'Endereço não informado'}
-              </T>
+              </ThemedText>
             </View>
-            <View style={s.wrap}>
+            <View style={layoutStyles.wrap}>
               <Button small secondary label="Histórico" onPress={() => setSelected(c)} />
               <IconButton
                 icon={Pencil}
@@ -109,31 +120,31 @@ export function Clients({ edit, notify }: PageProps) {
 
       {selected && (
         <Sheet title={selected.name} onClose={() => setSelected(null)}>
-          <T muted>{selected.address}</T>
-          <T>{selected.notes || 'Sem observações.'}</T>
+          <ThemedText muted>{selected.address}</ThemedText>
+          <ThemedText>{selected.notes || 'Sem observações.'}</ThemedText>
           {(selected.monthly || []).length > 0 && (
             <>
-              <T bold>
+              <ThemedText bold>
                 Mensal fixo • dia {selected.day}, {selected.time}
-              </T>
+              </ThemedText>
               {selected.monthly.map((l) => (
-                <T key={l.productId}>
+                <ThemedText key={l.productId}>
                   {l.quantity} × {l.name} • {l.type}
-                </T>
+                </ThemedText>
               ))}
             </>
           )}
-          <T bold size={18}>
+          <ThemedText bold size={18}>
             Histórico de pedidos e entregas
-          </T>
+          </ThemedText>
           {Object.values(account.deliveries)
             .filter((d) => d.clientId === selected.id)
             .sort((a, b) => b.date.localeCompare(a.date))
             .map((d) => (
               <Card key={d.id}>
-                <T bold>
+                <ThemedText bold>
                   {dateLabel(d.date)} • {d.time}
-                </T>
+                </ThemedText>
                 <Badge>
                   {d.status === 'pending'
                     ? 'Pendente'
@@ -142,27 +153,27 @@ export function Clients({ edit, notify }: PageProps) {
                       : 'Cancelada'}
                 </Badge>
                 {(d.lines || []).map((l) => (
-                  <T key={l.productId}>
+                  <ThemedText key={l.productId}>
                     {l.quantity} × {l.name} • {money(l.price * l.quantity)}
-                  </T>
+                  </ThemedText>
                 ))}
-                <T muted>{d.address}</T>
+                <ThemedText muted>{d.address}</ThemedText>
               </Card>
             ))}
-          <T bold size={18}>
+          <ThemedText bold size={18}>
             Compromissos
-          </T>
+          </ThemedText>
           {Object.values(account.appointments)
             .filter((x) => x.clientId === selected.id)
             .map((x) => (
-              <T key={x.id}>
+              <ThemedText key={x.id}>
                 {dateLabel(x.date)} {x.time} • {x.title} •{' '}
                 {x.status === 'done'
                   ? 'Concluído'
                   : x.status === 'cancelled'
                     ? 'Cancelado'
                     : 'Agendado'}
-              </T>
+              </ThemedText>
             ))}
           <Button
             label="Agendar com este cliente"

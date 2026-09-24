@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { View, Linking, StyleSheet } from 'react-native';
-import { T, Card, Button, IconButton, Chips, Badge, Empty, Calendar } from '../ui';
+import { ThemedText, Card, Button, IconButton, Chips, Badge, Empty, Calendar } from '../ui';
 import {
   Plus,
   Download,
@@ -102,9 +102,9 @@ export function Deliveries({ edit, notify }: PageProps) {
   }
 
   return (
-    <View style={s.stack}>
+    <View style={deliveryStyles.stack}>
       {/* Navegação por Abas e Nova Entrega */}
-      <View style={[s.between, { flexWrap: 'wrap' }]}>
+      <View style={[deliveryStyles.between, { flexWrap: 'wrap' }]}>
         <Chips
           options={[
             { id: 'list', label: 'Entregas' },
@@ -138,7 +138,7 @@ export function Deliveries({ edit, notify }: PageProps) {
               onChange={(val) => setScope(val as 'day' | 'month')}
             />
 
-            <View style={s.wrap}>
+            <View style={deliveryStyles.wrap}>
               <Button
                 label="Gerar entregas mensais"
                 secondary
@@ -180,10 +180,10 @@ export function Deliveries({ edit, notify }: PageProps) {
               />
             </View>
 
-            <T muted size={12}>
+            <ThemedText muted size={12}>
               Exportação de {date.slice(0, 7).split('-').reverse().join('/')} • somente nome, tipo e
               quantidade; canceladas não entram.
-            </T>
+            </ThemedText>
           </>
         )}
       </Card>
@@ -204,14 +204,14 @@ export function Deliveries({ edit, notify }: PageProps) {
 
           {list.map((d) => (
             <Card key={d.id}>
-              <View style={[s.between, { flexWrap: 'wrap' }]}>
+              <View style={[deliveryStyles.between, { flexWrap: 'wrap' }]}>
                 <View>
-                  <T size={19} bold>
+                  <ThemedText size={19} bold>
                     {d.clientName}
-                  </T>
-                  <T muted>
+                  </ThemedText>
+                  <ThemedText muted>
                     {dateLabel(d.date)} • {d.time} • {d.duration} min
-                  </T>
+                  </ThemedText>
                 </View>
                 <Badge>
                   {d.status === 'pending'
@@ -222,9 +222,9 @@ export function Deliveries({ edit, notify }: PageProps) {
                 </Badge>
               </View>
 
-              <T muted>{d.address}</T>
+              <ThemedText muted>{d.address}</ThemedText>
 
-              <View style={s.wrap}>
+              <View style={deliveryStyles.wrap}>
                 {(d.lines || []).map((l) => (
                   <Badge key={l.productId}>
                     {l.quantity} × {l.name} ({l.type})
@@ -232,14 +232,14 @@ export function Deliveries({ edit, notify }: PageProps) {
                 ))}
               </View>
 
-              <T bold>
+              <ThemedText bold>
                 Total: {money((d.lines || []).reduce((sum, l) => sum + l.price * l.quantity, 0))}
-              </T>
+              </ThemedText>
 
-              {!!d.notes && <T muted>{d.notes}</T>}
+              {!!d.notes && <ThemedText muted>{d.notes}</ThemedText>}
 
               {d.status === 'pending' && (
-                <View style={s.wrap}>
+                <View style={deliveryStyles.wrap}>
                   <Button
                     small
                     label="Concluir entrega"
@@ -287,15 +287,15 @@ export function Deliveries({ edit, notify }: PageProps) {
         /* CONTEÚDO DA ABA 2: ROTA DO DIA */
         <>
           <Card>
-            <T size={20} bold>
+            <ThemedText size={20} bold>
               Sua rota • {dateLabel(date)}
-            </T>
-            <T muted>
+            </ThemedText>
+            <ThemedText muted>
               Adicione uma entrega para incluir um cliente. Use as setas para alterar a ordem; edite
               uma parada para mudar data, horário ou destinatário.
-            </T>
+            </ThemedText>
 
-            <View style={s.wrap}>
+            <View style={deliveryStyles.wrap}>
               <Button
                 label="Adicionar parada"
                 small
@@ -318,10 +318,10 @@ export function Deliveries({ edit, notify }: PageProps) {
               <Button label="Exportar rota" icon={Download} secondary small onPress={exportRoute} />
             </View>
 
-            <T size={12} muted>
+            <ThemedText size={12} muted>
               A sugestão usa distância entre coordenadas, mantém a primeira parada e não considera
               trânsito ou janelas de horário. Revise a ordem antes de sair.
-            </T>
+            </ThemedText>
 
             {computedMapsUrls.map((url, i) => (
               <Button
@@ -339,15 +339,15 @@ export function Deliveries({ edit, notify }: PageProps) {
 
           {route.map((d, i) => (
             <Card key={d.id}>
-              <View style={s.row}>
+              <View style={deliveryStyles.row}>
                 <Badge>{i + 1}</Badge>
                 <View style={{ flex: 1 }}>
-                  <T bold size={18}>
+                  <ThemedText bold size={18}>
                     {d.clientName}
-                  </T>
-                  <T muted>
+                  </ThemedText>
+                  <ThemedText muted>
                     {d.time} • {d.address}
-                  </T>
+                  </ThemedText>
                 </View>
                 <IconButton
                   icon={ChevronUp}
@@ -371,9 +371,11 @@ export function Deliveries({ edit, notify }: PageProps) {
                 />
               </View>
 
-              <T muted>{(d.lines || []).map((l) => `${l.quantity} × ${l.name}`).join(' • ')}</T>
+              <ThemedText muted>
+                {(d.lines || []).map((l) => `${l.quantity} × ${l.name}`).join(' • ')}
+              </ThemedText>
 
-              <View style={s.wrap}>
+              <View style={deliveryStyles.wrap}>
                 <Button
                   label="Editar parada"
                   small
@@ -416,7 +418,7 @@ export function Deliveries({ edit, notify }: PageProps) {
 }
 
 // Estilização base de layout
-const s = StyleSheet.create({
+const deliveryStyles = StyleSheet.create({
   stack: {
     flexDirection: 'column',
     gap: 12,

@@ -7,11 +7,19 @@ import {
   ActivityIndicator,
   ViewStyle,
 } from 'react-native';
-import { Link, Slot, usePathname } from 'expo-router';
+import { router, Slot, usePathname } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { CalendarDays, Bell, LogOut, Leaf } from 'lucide-react-native';
 import { useStore } from '../store';
-import { T, Button, IconButton, s, contrast, useTheme } from '../ui';
+import {
+  ThemedText,
+  Button,
+  IconButton,
+  layoutStyles,
+  contrast,
+  interactiveZoom,
+  useTheme,
+} from '../ui';
 import { navigation, paths } from '../Router/navigation';
 import { useAppActions } from '../contexts/AppActions';
 
@@ -31,7 +39,7 @@ export function AppShell() {
       const active = current.id === n.id;
       const linkStyle: ViewStyle = desktop
         ? StyleSheet.flatten<ViewStyle>([
-            s.row,
+            layoutStyles.row,
             {
               padding: 14,
               borderRadius: 12,
@@ -40,18 +48,26 @@ export function AppShell() {
           ])
         : { flex: 1, alignItems: 'center', gap: 5, paddingVertical: 8, minHeight: 48 };
       return (
-        <Link key={n.id} href={paths[n.id]} asChild>
-          <Pressable
-            accessibilityLabel={n.label}
-            accessibilityState={{ selected: active }}
-            style={linkStyle}
+        <Pressable
+          key={n.id}
+          accessibilityRole="link"
+          accessibilityLabel={n.label}
+          accessibilityState={{ selected: active }}
+          onPress={() => router.navigate(paths[n.id])}
+          style={({ pressed, hovered }: any) => ({
+            ...linkStyle,
+            ...interactiveZoom(pressed, hovered),
+          })}
+        >
+          <n.icon size={20} color={active ? theme.primary : theme.muted} />
+          <ThemedText
+            bold={active}
+            size={desktop ? 13 : 10}
+            color={active ? theme.primary : theme.muted}
           >
-            <n.icon size={20} color={active ? theme.primary : theme.muted} />
-            <T bold={active} size={desktop ? 13 : 10} color={active ? theme.primary : theme.muted}>
-              {desktop ? n.label : n.short}
-            </T>
-          </Pressable>
-        </Link>
+            {desktop ? n.label : n.short}
+          </ThemedText>
+        </Pressable>
       );
     });
   return (
@@ -71,18 +87,18 @@ export function AppShell() {
               gap: 35,
             }}
           >
-            <View style={[s.row, { paddingTop: 12 }]}>
+            <View style={[layoutStyles.row, { paddingTop: 12 }]}>
               <View style={{ backgroundColor: theme.primary, padding: 9, borderRadius: 12 }}>
                 <CalendarDays size={23} color={contrast(theme.primary)} />
               </View>
-              <T size={23} bold>
+              <ThemedText size={23} bold>
                 AgendaHub.
-              </T>
+              </ThemedText>
             </View>
             <View style={{ gap: 8 }}>
-              <T size={10} bold muted style={{ letterSpacing: 2, marginBottom: 8 }}>
+              <ThemedText size={10} bold muted style={{ letterSpacing: 2, marginBottom: 8 }}>
                 SEU ESPAÇO
-              </T>
+              </ThemedText>
               {links(true)}
             </View>
             <View style={{ flex: 1 }} />
@@ -90,12 +106,12 @@ export function AppShell() {
               style={{ backgroundColor: theme.background, borderRadius: 16, padding: 16, gap: 9 }}
             >
               <Leaf size={23} color={theme.primary} />
-              <T bold size={13}>
+              <ThemedText bold size={13}>
                 Organizar é cuidar.
-              </T>
-              <T muted size={12}>
+              </ThemedText>
+              <ThemedText muted size={12}>
                 Um passo de cada vez, tudo no seu lugar.
-              </T>
+              </ThemedText>
             </View>
             <Button label="Sair da conta" small secondary icon={LogOut} onPress={exit} />
           </View>
@@ -103,7 +119,7 @@ export function AppShell() {
         <View style={{ flex: 1 }}>
           <View
             style={[
-              s.between,
+              layoutStyles.between,
               {
                 backgroundColor: theme.surface,
                 paddingHorizontal: wide ? 34 : 18,
@@ -114,24 +130,24 @@ export function AppShell() {
             ]}
           >
             <View>
-              <T size={wide ? 16 : 20} bold>
+              <ThemedText size={wide ? 16 : 20} bold>
                 {wide ? current.label : 'AgendaHub.'}
-              </T>
+              </ThemedText>
               {wide && (
-                <T size={11} muted>
+                <ThemedText size={11} muted>
                   Seu negócio, conectado.
-                </T>
+                </ThemedText>
               )}
             </View>
-            <View style={s.row}>
+            <View style={layoutStyles.row}>
               {wide && (
-                <T size={12} muted>
+                <ThemedText size={12} muted>
                   {new Date().toLocaleDateString('pt-BR', {
                     weekday: 'long',
                     day: 'numeric',
                     month: 'long',
                   })}
-                </T>
+                </ThemedText>
               )}
               <IconButton icon={Bell} label="Ver lembretes" onPress={showAlerts} />
               {!wide && <IconButton icon={LogOut} label="Sair da conta" onPress={exit} />}
@@ -145,24 +161,24 @@ export function AppShell() {
                   justifyContent: 'center',
                 }}
               >
-                <T color={theme.primary} bold>
+                <ThemedText color={theme.primary} bold>
                   {(account.settings.name || user?.displayName || user?.email || 'A')
                     .charAt(0)
                     .toUpperCase()}
-                </T>
+                </ThemedText>
               </View>
             </View>
           </View>
           {!online && (
             <View style={{ padding: 10, backgroundColor: '#FFF0D5' }}>
-              <T color="#775922" size={12}>
+              <ThemedText color="#775922" size={12}>
                 Sem conexão • reconecte-se para salvar alterações.
-              </T>
+              </ThemedText>
             </View>
           )}
           {error && (
             <View style={{ padding: 12 }}>
-              <T color="#B33D3D">{error}</T>
+              <ThemedText color="#B33D3D">{error}</ThemedText>
             </View>
           )}
           {ready ? (
@@ -170,7 +186,7 @@ export function AppShell() {
           ) : (
             <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 16 }}>
               <ActivityIndicator color={theme.primary} />
-              <T muted>Sincronizando sua conta…</T>
+              <ThemedText muted>Sincronizando sua conta…</ThemedText>
             </View>
           )}
           {!wide && (

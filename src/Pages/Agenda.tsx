@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, useWindowDimensions } from 'react-native';
 import { Plus } from 'lucide-react-native';
-import { T, Card, Button, Chips, Empty, Calendar, Badge, s } from '../ui';
+import { ThemedText, Card, Button, Chips, Empty, Calendar, Badge, layoutStyles } from '../ui';
 import { useStore } from '../store';
 import { activities, dateKey, localDate, dateLabel, availableSlots } from '../domain';
 import { ActivityRow } from '../Components/ActivityRow';
@@ -42,8 +42,8 @@ export function Agenda({
     }
   }
   return (
-    <View style={s.stack}>
-      <View style={[s.between, { flexWrap: 'wrap' }]}>
+    <View style={layoutStyles.stack}>
+      <View style={[layoutStyles.between, { flexWrap: 'wrap' }]}>
         <Chips
           options={[
             { id: 'day', label: 'Dia' },
@@ -65,7 +65,7 @@ export function Agenda({
           <Button label="Ir para hoje" secondary small onPress={() => setDate(dateKey())} />
         </Card>
         <Card style={{ flex: 1 }}>
-          <T size={20} bold>
+          <ThemedText size={20} bold>
             {mode === 'day'
               ? localDate(date).toLocaleDateString('pt-BR', {
                   weekday: 'long',
@@ -75,7 +75,7 @@ export function Agenda({
               : mode === 'week'
                 ? `${dateLabel(dateKey(start))} — ${dateLabel(dateKey(end))}`
                 : localDate(date).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}
-          </T>
+          </ThemedText>
           {list.map((x) => (
             <View key={x.id}>
               <ActivityRow
@@ -89,7 +89,7 @@ export function Agenda({
                 }
               />
               {x.kind === 'appointment' && (
-                <View style={[s.wrap, { paddingTop: 8 }]}>
+                <View style={[layoutStyles.wrap, { paddingTop: 8 }]}>
                   <Button label="Concluir" small secondary onPress={() => done(x.id)} />
                   <Button
                     label="Cancelar compromisso"
@@ -127,20 +127,20 @@ export function Agenda({
             Object.values(account.appointments)
               .filter((x) => x.status !== 'scheduled' && included(x.date))
               .map((x) => (
-                <View key={x.id} style={s.between}>
-                  <T>
+                <View key={x.id} style={layoutStyles.between}>
+                  <ThemedText>
                     {x.title} • {dateLabel(x.date)} {x.time}
-                  </T>
+                  </ThemedText>
                   <Badge>{x.status === 'done' ? 'Concluído' : 'Cancelado'}</Badge>
                 </View>
               ))}
         </Card>
       </View>
       <Card>
-        <T bold>Horários disponíveis • {dateLabel(date)}</T>
-        <T muted size={12}>
+        <ThemedText bold>Horários disponíveis • {dateLabel(date)}</ThemedText>
+        <ThemedText muted size={12}>
           Janelas de 30 minutos, das 08h às 18h. Compromissos e entregas são considerados.
-        </T>
+        </ThemedText>
         <Chips
           options={availableSlots(account, date).map((x) => ({ id: x, label: x }))}
           value=""

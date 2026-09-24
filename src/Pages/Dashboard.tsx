@@ -11,7 +11,17 @@ import {
   CalendarDays,
   Sparkles,
 } from 'lucide-react-native';
-import { T, Card, Button, Empty, Calendar, s, useTheme, contrast } from '../ui';
+import {
+  ThemedText,
+  Card,
+  Button,
+  Empty,
+  Calendar,
+  layoutStyles,
+  interactiveZoom,
+  useTheme,
+  contrast,
+} from '../ui';
 import { useStore } from '../store';
 import { activities, dateKey, localDate, conflicts } from '../domain';
 import { PageProps } from './types';
@@ -37,14 +47,14 @@ export function Dashboard({ edit, go }: PageProps) {
   );
 
   return (
-    <View style={s.stack}>
-      <View style={[s.between, { flexWrap: 'wrap' }]}>
+    <View style={layoutStyles.stack}>
+      <View style={[layoutStyles.between, { flexWrap: 'wrap' }]}>
         <View style={{ gap: 5 }}>
-          <T size={30} bold>
+          <ThemedText size={30} bold>
             Olá, {(account.settings.name || user?.displayName || 'você').split(' ')[0]}{' '}
-            <T size={28}>☀</T>
-          </T>
-          <T muted>Vamos fazer deste um dia bem organizado.</T>
+            <ThemedText size={28}>☀</ThemedText>
+          </ThemedText>
+          <ThemedText muted>Vamos fazer deste um dia bem organizado.</ThemedText>
         </View>
         <Button
           label="Novo compromisso"
@@ -53,7 +63,7 @@ export function Dashboard({ edit, go }: PageProps) {
         />
       </View>
 
-      <View style={[s.wrap, { gap: 14 }]}>
+      <View style={[layoutStyles.wrap, { gap: 14 }]}>
         {[
           {
             label: 'Compromissos hoje',
@@ -89,21 +99,25 @@ export function Dashboard({ edit, go }: PageProps) {
             accessibilityRole="button"
             accessibilityLabel={x.label}
             onPress={() => go?.(x.tab)}
-            style={{ flex: 1, minWidth: width < 600 ? '44%' : 180 }}
+            style={({ pressed, hovered }: any) => ({
+              flex: 1,
+              minWidth: width < 600 ? '44%' : 180,
+              ...interactiveZoom(pressed, hovered, 0.975, 1.02),
+            })}
           >
             <Card delay={i * 60} style={{ height: 158, padding: 18, gap: 10 }}>
-              <View style={s.between}>
-                <T muted size={12}>
+              <View style={layoutStyles.between}>
+                <ThemedText muted size={12}>
                   {x.label}
-                </T>
+                </ThemedText>
                 <x.icon color={t.primary} size={19} />
               </View>
-              <T size={33} bold>
+              <ThemedText size={33} bold>
                 {x.value}
-              </T>
-              <T muted size={11}>
+              </ThemedText>
+              <ThemedText muted size={11}>
                 {x.note}
-              </T>
+              </ThemedText>
             </Card>
           </Pressable>
         ))}
@@ -112,36 +126,36 @@ export function Dashboard({ edit, go }: PageProps) {
       <View style={{ flexDirection: width > 1100 ? 'row' : 'column', gap: 18 }}>
         <View style={{ flex: 1, gap: 18 }}>
           <Card style={{ backgroundColor: t.primary, borderColor: t.primary, overflow: 'hidden' }}>
-            <View style={s.row}>
+            <View style={layoutStyles.row}>
               <Sparkles size={18} color={contrast(t.primary)} />
-              <T color={contrast(t.primary)} bold>
+              <ThemedText color={contrast(t.primary)} bold>
                 Seu resumo inteligente
-              </T>
+              </ThemedText>
             </View>
-            <T color={contrast(t.primary)} size={22} bold>
+            <ThemedText color={contrast(t.primary)} size={22} bold>
               {list.length
                 ? `${list.length} atividades para hoje.`
                 : 'Um novo dia, novas possibilidades.'}
-            </T>
-            <T color={contrast(t.primary)}>
+            </ThemedText>
+            <ThemedText color={contrast(t.primary)}>
               {upcoming.length ? `${upcoming.length} atividade(s) começam na próxima hora. ` : ''}
               {conflictsCount
                 ? `${conflictsCount} atividades em conflito precisam de atenção.`
                 : 'Nenhum conflito de horário na sua agenda.'}
-            </T>
+            </ThemedText>
             {all.filter((x) => localDate(x.date, x.time).getTime() < now).length > 0 && (
-              <T color={contrast(t.primary)} size={12}>
+              <ThemedText color={contrast(t.primary)} size={12}>
                 Há atividades com horário passado ainda pendentes. Revise a agenda e atualize seus
                 status.
-              </T>
+              </ThemedText>
             )}
           </Card>
 
           <Card>
-            <View style={s.between}>
-              <T size={19} bold>
+            <View style={layoutStyles.between}>
+              <ThemedText size={19} bold>
                 Na sua agenda hoje
-              </T>
+              </ThemedText>
               <Button
                 label="Ver agenda"
                 small
@@ -184,7 +198,7 @@ export function Dashboard({ edit, go }: PageProps) {
             />
           </Card>
           <Card>
-            <T bold>Próximos passos</T>
+            <ThemedText bold>Próximos passos</ThemedText>
             <Button
               label="Cadastrar cliente"
               secondary
@@ -199,9 +213,9 @@ export function Dashboard({ edit, go }: PageProps) {
               icon={Truck}
               onPress={() => edit({ kind: 'delivery' })}
             />
-            <T size={12} muted>
+            <ThemedText size={12} muted>
               Organize o básico hoje. Ganhe tranquilidade amanhã.
-            </T>
+            </ThemedText>
           </Card>
         </View>
       </View>
