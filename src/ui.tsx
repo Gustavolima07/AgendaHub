@@ -59,20 +59,28 @@ export function T({
 
 export function Card({ children, style, delay = 0 }: CardProps) {
   const theme = useTheme();
+  const cardStyle = StyleSheet.flatten([
+    {
+      backgroundColor: theme.surface,
+      borderRadius: 16,
+      padding: 16,
+      gap: 12,
+    },
+    style,
+  ]);
+
+  // Reanimated's DOM updater can treat Moti's animated style array as CSS
+  // properties (0, 1, ...). Keep the web DOM on React Native Web's style path.
+  if (Platform.OS === 'web') {
+    return <View style={cardStyle}>{children}</View>;
+  }
+
   return (
     <MotiView
       from={{ opacity: 0, translateY: 12 }}
       animate={{ opacity: 1, translateY: 0 }}
       transition={{ type: 'timing', duration: 350, delay }}
-      style={[
-        {
-          backgroundColor: theme.surface,
-          borderRadius: 16,
-          padding: 16,
-          gap: 12,
-        },
-        style,
-      ]}
+      style={cardStyle}
     >
       {children}
     </MotiView>
