@@ -24,6 +24,7 @@ export const paths = {
   settings: '/personalizar',
 } as const;
 export type NavId = keyof typeof paths;
+export const helpPath = '/ajuda' as const;
 
 export const navigation: NavItem[] = [
   { id: 'dashboard', label: 'Visão geral', short: 'Início', icon: LayoutDashboard },

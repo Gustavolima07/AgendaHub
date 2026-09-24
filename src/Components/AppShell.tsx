@@ -7,9 +7,9 @@ import {
   ActivityIndicator,
   ViewStyle,
 } from 'react-native';
-import { router, Slot, usePathname } from 'expo-router';
+import { router, Slot, usePathname, type Href } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { CalendarDays, Bell, LogOut, Leaf } from 'lucide-react-native';
+import { CalendarDays, Bell, LogOut, Leaf, CircleHelp } from 'lucide-react-native';
 import { useStore } from '../store';
 import {
   ThemedText,
@@ -20,7 +20,7 @@ import {
   interactiveZoom,
   useTheme,
 } from '../ui';
-import { navigation, paths } from '../Router/navigation';
+import { helpPath, navigation, paths } from '../Router/navigation';
 import { useAppActions } from '../contexts/AppActions';
 
 export function AppShell() {
@@ -31,6 +31,7 @@ export function AppShell() {
   const pathname = usePathname();
   const { showAlerts, notify } = useAppActions();
   const current = navigation.find((n) => paths[n.id] === pathname) || navigation[0];
+  const currentTitle = pathname === helpPath ? 'Central de ajuda' : current.label;
   const exit = () => {
     void logout().catch(() => notify('Não foi possível sair da conta.'));
   };
@@ -131,7 +132,7 @@ export function AppShell() {
           >
             <View>
               <ThemedText size={wide ? 16 : 20} bold>
-                {wide ? current.label : 'AgendaHub.'}
+                {wide ? currentTitle : 'AgendaHub.'}
               </ThemedText>
               {wide && (
                 <ThemedText size={11} muted>
@@ -150,6 +151,11 @@ export function AppShell() {
                 </ThemedText>
               )}
               <IconButton icon={Bell} label="Ver lembretes" onPress={showAlerts} />
+              <IconButton
+                icon={CircleHelp}
+                label="Ajuda"
+                onPress={() => router.navigate(helpPath as Href)}
+              />
               {!wide && <IconButton icon={LogOut} label="Sair da conta" onPress={exit} />}
               <View
                 style={{

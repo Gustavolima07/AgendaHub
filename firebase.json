@@ -1,6 +1,7 @@
 {
   "database": { "rules": "database.rules.json" },
   "hosting": {
+    "site": "agendahub-26997",
     "public": "dist",
     "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
     "rewrites": [{ "source": "**", "destination": "/index.html" }],

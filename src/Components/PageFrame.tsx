@@ -2,9 +2,9 @@ import React from 'react';
 import { ScrollView, View, useWindowDimensions } from 'react-native';
 import { ThemedText } from '../ui';
 import { navigation, tabSubtitles, NavId } from '../Router/navigation';
-export function PageFrame({ id, children }: { id: NavId; children: React.ReactNode }) {
+export function PageFrame({ id, children }: { id: NavId | 'help'; children: React.ReactNode }) {
   const { width } = useWindowDimensions();
-  const page = navigation.find((n) => n.id === id)!;
+  const page = navigation.find((n) => n.id === id);
   return (
     <ScrollView
       keyboardShouldPersistTaps="handled"
@@ -14,9 +14,9 @@ export function PageFrame({ id, children }: { id: NavId; children: React.ReactNo
         {id !== 'dashboard' && (
           <View>
             <ThemedText size={29} bold>
-              {page.label}
+              {page?.label || 'Central de ajuda'}
             </ThemedText>
-            <ThemedText muted>{tabSubtitles[id]}</ThemedText>
+            <ThemedText muted>{id === 'help' ? 'Encontre orientações para cada recurso do aplicativo.' : tabSubtitles[id]}</ThemedText>
           </View>
         )}
         {children}
