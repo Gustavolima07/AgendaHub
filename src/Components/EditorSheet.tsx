@@ -412,12 +412,18 @@ export function EditorSheet({
               Nenhum endereço encontrado. Complete mais campos ou insira as coordenadas manualmente.
             </ThemedText>
           )}
+          {geocodeMatches.some((match) => match.approximate) && (
+            <ThemedText size={12} color="#8A641F">
+              Não encontramos o número exato. As sugestões abaixo representam a rua sem o número;
+              confirme o ponto no GPS antes de usar a rota.
+            </ThemedText>
+          )}
           {geocodeMatches.map((match, index) => (
             <Button
               key={`${match.latitude}-${match.longitude}`}
               small
               secondary
-              label={`${index + 1}. ${match.displayName.slice(0, 90)} · ${match.latitude}, ${match.longitude}`}
+              label={`${index + 1}. ${match.approximate ? 'Aproximado · ' : ''}${match.displayName.slice(0, 90)} · ${match.latitude}, ${match.longitude}`}
               onPress={() => {
                 update('latitude', String(match.latitude));
                 update('longitude', String(match.longitude));
