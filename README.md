@@ -111,8 +111,10 @@ Para usar outro projeto, substitua a configuração do SDK e o alias em `.fireba
 Requisitos adicionais: Firebase CLI e Java compatível com os emuladores.
 
 ```bash
-firebase emulators:exec --only database --project demo-agendahub "npm run test:rules"
+firebase emulators:exec --only database --project demo-agendahub --config firebase.test.json "npm run test:rules"
 ```
+
+Os testes usam uma configuração isolada na porta `9001`, para poderem rodar enquanto o emulador usado pela interface permanece aberto na porta `9000`.
 
 Testes cobrem isolamento de contas, acesso anônimo, validação de estoque, conflitos, reservas, conclusão idempotente, recorrência, CSV e divisão de rotas.
 

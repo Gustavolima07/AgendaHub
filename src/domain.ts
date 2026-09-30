@@ -1,4 +1,4 @@
-import { Account, Appointment, Delivery, Line, Palette } from './types';
+import { Account, AddressParts, Appointment, Delivery, Line, Palette } from './types';
 export const palettes: Palette[] = [
   {
     id: 'forest',
@@ -66,7 +66,7 @@ export const emptyAccount = (): Account => ({
   products: {},
   appointments: {},
   deliveries: {},
-  settings: { palette: palettes[0], palettes: [], name: '', notifications: false },
+  settings: { palette: palettes[0], palettes: [], name: '', notifications: false, gpsApp: 'maps' },
 });
 export const normalize = (a: Partial<Account> | null): Account => ({
   ...emptyAccount(),
@@ -85,6 +85,21 @@ export const dateLabel = (date: string) =>
   localDate(date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
 export const money = (value: number) =>
   value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+export function formatAddressParts(parts: Partial<AddressParts>) {
+  const street = [parts.street?.trim(), parts.number?.trim()].filter(Boolean).join(', ');
+  return [
+    street,
+    parts.block?.trim() && `Bloco ${parts.block.trim()}`,
+    parts.complement?.trim(),
+    parts.neighborhood?.trim(),
+    parts.postalCode?.trim(),
+    parts.city?.trim(),
+    parts.state?.trim(),
+    parts.country?.trim(),
+  ]
+    .filter(Boolean)
+    .join(', ');
+}
 export const minutes = (time: string) => {
   const [h, m] = time.split(':').map(Number);
   return h * 60 + m;
@@ -144,7 +159,12 @@ export function reserved(a: Account, productId: string, exceptId?: string) {
       0,
     );
 }
-export function validateLines(a: Account, lines: Line[], exceptId?: string) {
+export function validateLines(
+  a: Account,
+  lines: Line[],
+  exceptId?: string,
+  allowOverstock = false,
+) {
   if (!lines.length) throw Error('Adicione pelo menos um produto.');
   const totals: Record<string, number> = {};
   for (const line of lines) {
@@ -155,11 +175,31 @@ export function validateLines(a: Account, lines: Line[], exceptId?: string) {
   for (const [id, qty] of Object.entries(totals)) {
     const p = a.products[id];
     if (!p || p.archived) throw Error('Um dos produtos não está mais disponível.');
-    if (qty > p.quantity - reserved(a, id, exceptId))
+    if (!allowOverstock && qty > p.quantity - reserved(a, id, exceptId))
       throw Error(
         `Estoque disponível insuficiente para ${p.name}. Disponível: ${p.quantity - reserved(a, id, exceptId)}.`,
       );
   }
+}
+export function stockShortages(a: Account) {
+  const requested: Record<string, number> = {};
+  for (const delivery of Object.values(a.deliveries).filter((item) => item.status === 'pending')) {
+    for (const line of delivery.lines || [])
+      requested[line.productId] = (requested[line.productId] || 0) + line.quantity;
+  }
+  return Object.entries(requested)
+    .map(([productId, requestedQuantity]) => {
+      const product = a.products[productId];
+      const onHand = product?.quantity || 0;
+      return {
+        productId,
+        name: product?.name || 'Produto removido',
+        requested: requestedQuantity,
+        onHand,
+        missing: Math.max(0, requestedQuantity - onHand),
+      };
+    })
+    .filter((item) => item.missing > 0);
 }
 export function saveAppointment(a: Account, item: Appointment) {
   if (a.appointments[item.id] && a.appointments[item.id].status !== 'scheduled')
@@ -180,7 +220,7 @@ export function saveDelivery(a: Account, item: Delivery) {
     throw Error('Selecione um cliente ativo.');
   if (!item.address.trim()) throw Error('Preencha o endereço da entrega.');
   if (item.status === 'pending') {
-    validateLines(a, item.lines, item.id);
+    validateLines(a, item.lines, item.id, true);
     if (conflicts(a, item).length)
       throw Error('Entrega em conflito com outra atividade. Escolha outro horário.');
   }
@@ -189,7 +229,17 @@ export function saveDelivery(a: Account, item: Delivery) {
 export function completeDelivery(a: Account, id: string) {
   const d = a.deliveries[id];
   if (!d || d.status !== 'pending') throw Error('Essa entrega não está pendente.');
-  validateLines(a, d.lines, id);
+  validateLines(a, d.lines, id, true);
+  const requested: Record<string, number> = {};
+  for (const line of d.lines)
+    requested[line.productId] = (requested[line.productId] || 0) + line.quantity;
+  for (const [productId, quantity] of Object.entries(requested)) {
+    const product = a.products[productId];
+    if (quantity > product.quantity)
+      throw Error(
+        `Estoque insuficiente para concluir ${product.name}. Faltam ${quantity - product.quantity} unidade(s).`,
+      );
+  }
   for (const line of d.lines) a.products[line.productId].quantity -= line.quantity;
   d.status = 'delivered';
 }
@@ -214,6 +264,7 @@ export function generateMonthly(a: Account, month: string) {
         name: a.products[l.productId]?.name || l.name,
         type: a.products[l.productId]?.type || l.type,
         price: a.products[l.productId]?.price ?? l.price,
+        costPrice: a.products[l.productId]?.costPrice ?? l.costPrice,
       }));
     const d: Delivery = {
       id,
@@ -282,6 +333,13 @@ export function mapsUrls(deliveries: Delivery[]) {
     urls.push(`https://www.google.com/maps/dir/?${params}`);
   }
   return urls;
+}
+export function wazeUrl(address: string, latitude?: number, longitude?: number) {
+  const params = new URLSearchParams({ navigate: 'yes' });
+  if (Number.isFinite(latitude) && Number.isFinite(longitude))
+    params.set('ll', `${latitude},${longitude}`);
+  else params.set('q', address);
+  return `https://waze.com/ul?${params.toString()}`;
 }
 export function optimizeRoute(a: Account, deliveries: Delivery[]) {
   if (

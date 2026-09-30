@@ -4,6 +4,7 @@ export type Line = {
   type: string;
   quantity: number;
   price: number;
+  costPrice?: number;
 };
 export type Product = {
   id: string;
@@ -11,6 +12,7 @@ export type Product = {
   type: string;
   quantity: number;
   price: number;
+  costPrice?: number;
   archived?: boolean;
 };
 export type Client = {
@@ -19,6 +21,7 @@ export type Client = {
   phone: string;
   email: string;
   address: string;
+  addressParts?: AddressParts;
   notes: string;
   latitude?: number;
   longitude?: number;
@@ -26,6 +29,17 @@ export type Client = {
   day: number;
   time: string;
   archived?: boolean;
+};
+export type AddressParts = {
+  street: string;
+  number: string;
+  block: string;
+  neighborhood: string;
+  postalCode: string;
+  city: string;
+  state: string;
+  complement: string;
+  country: string;
 };
 export type Appointment = {
   id: string;
@@ -68,5 +82,11 @@ export type Account = {
   products: Record<string, Product>;
   appointments: Record<string, Appointment>;
   deliveries: Record<string, Delivery>;
-  settings: { palette: Palette; palettes: Palette[]; name: string; notifications: boolean };
+  settings: {
+    palette: Palette;
+    palettes: Palette[];
+    name: string;
+    notifications: boolean;
+    gpsApp?: 'maps' | 'waze';
+  };
 };

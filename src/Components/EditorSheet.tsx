@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { View, Switch } from 'react-native';
-import { Trash2 } from 'lucide-react-native';
+import { View, Switch, Linking } from 'react-native';
+import { MapPin, Trash2 } from 'lucide-react-native';
 import { useStore } from '../store';
 import {
   ThemedText,
@@ -13,7 +13,7 @@ import {
   IconButton,
   useTheme,
 } from '../ui';
-import { Client, Product, Appointment, Delivery, Line } from '../types';
+import { AddressParts, Client, Product, Appointment, Delivery, Line } from '../types';
 import {
   uid,
   dateKey,
@@ -22,13 +22,26 @@ import {
   reserved,
   money,
   availableSlots,
+  formatAddressParts,
 } from '../domain';
+import { findAddressCoordinates, GeocodingMatch } from '../geocoding';
 export type Editor =
   | { kind: 'client'; item?: Client }
   | { kind: 'product'; item?: Product }
   | { kind: 'appointment'; item?: Appointment; date?: string; time?: string; clientId?: string }
   | { kind: 'delivery'; item?: Delivery; date?: string; clientId?: string };
 const number = (s: string) => Number(s.replace(',', '.'));
+const blankAddress = (): AddressParts => ({
+  street: '',
+  number: '',
+  block: '',
+  neighborhood: '',
+  postalCode: '',
+  city: '',
+  state: '',
+  complement: '',
+  country: 'Brasil',
+});
 export function LineEditor({ lines, onChange }: { lines: Line[]; onChange: (l: Line[]) => void }) {
   const { account } = useStore();
   const products = Object.values(account.products).filter((p) => !p.archived);
@@ -65,14 +78,21 @@ export function LineEditor({ lines, onChange }: { lines: Line[]; onChange: (l: L
           .filter((p) => !lines.some((l) => l.productId === p.id))
           .map((p) => ({
             id: p.id,
-            label: `+ ${p.name} (${p.quantity - reserved(account, p.id)} livres)`,
+            label: `+ ${p.name} (${Math.max(0, p.quantity - reserved(account, p.id))} livres${p.quantity < reserved(account, p.id) + 1 ? ' · encomendar' : ''})`,
           }))}
         value=""
         onChange={(id) => {
           const p = account.products[id];
           onChange([
             ...lines,
-            { productId: id, name: p.name, type: p.type, price: p.price, quantity: 1 },
+            {
+              productId: id,
+              name: p.name,
+              type: p.type,
+              price: p.price,
+              costPrice: p.costPrice,
+              quantity: 1,
+            },
           ]);
         }}
       />
@@ -103,6 +123,7 @@ export function EditorSheet({
           phone: '',
           email: '',
           address: '',
+          addressParts: blankAddress(),
           notes: '',
           monthly: [],
           day: 1,
@@ -111,9 +132,14 @@ export function EditorSheet({
           longitude: '',
         },
         ...original,
+        addressParts:
+          (editor.kind === 'client' ? editor.item?.addressParts : undefined) || blankAddress(),
       };
     if (editor.kind === 'product')
-      return { ...{ id: uid(), name: '', type: '', quantity: 0, price: 0 }, ...original };
+      return {
+        ...{ id: uid(), name: '', type: '', quantity: 0, price: 0, costPrice: '' },
+        ...original,
+      };
     if (editor.kind === 'appointment')
       return {
         ...{
@@ -150,7 +176,15 @@ export function EditorSheet({
   });
   const [monthly, setMonthly] = useState((form.monthly || []).length > 0),
     [error, setError] = useState(''),
-    [busy, setBusy] = useState(false);
+    [busy, setBusy] = useState(false),
+    [oneTimeRoute, setOneTimeRoute] = useState(false),
+    [oneTimeLines, setOneTimeLines] = useState<Line[]>([]),
+    [oneTimeDate, setOneTimeDate] = useState(dateKey()),
+    [oneTimeTime, setOneTimeTime] = useState('10:00'),
+    [geocoding, setGeocoding] = useState(false),
+    [geocodeError, setGeocodeError] = useState(''),
+    [geocodeMatches, setGeocodeMatches] = useState<GeocodingMatch[]>([]),
+    [geocodeSearched, setGeocodeSearched] = useState(false);
   const update = (key: string, value: any) => setForm((f: any) => ({ ...f, [key]: value }));
   const field = (key: string, label: string, numeric = false, multiline = false) => (
     <Field
@@ -161,7 +195,36 @@ export function EditorSheet({
       multiline={multiline}
     />
   );
+  const addressField = (key: keyof AddressParts, label: string, numeric = false) => (
+    <Field
+      label={label}
+      value={String(form.addressParts?.[key] ?? '')}
+      onChange={(value) =>
+        setForm((current: any) => ({
+          ...current,
+          addressParts: { ...blankAddress(), ...current.addressParts, [key]: value },
+        }))
+      }
+      numeric={numeric}
+    />
+  );
   const clients = Object.values(account.clients).filter((c) => !c.archived);
+  async function lookupCoordinates() {
+    setGeocodeError('');
+    setGeocodeMatches([]);
+    setGeocodeSearched(true);
+    setGeocoding(true);
+    try {
+      const parts = form.addressParts as AddressParts;
+      if (!parts.street.trim() || !parts.city.trim() || !parts.state.trim())
+        throw new Error('Preencha rua, cidade e estado para buscar o ponto.');
+      setGeocodeMatches(await findAddressCoordinates(formatAddressParts(parts)));
+    } catch (lookupError) {
+      setGeocodeError((lookupError as Error).message);
+    } finally {
+      setGeocoding(false);
+    }
+  }
   async function save() {
     setError('');
     setBusy(true);
@@ -174,6 +237,9 @@ export function EditorSheet({
             type: form.type.trim(),
             quantity: number(String(form.quantity)),
             price: number(String(form.price)),
+            costPrice: String(form.costPrice ?? '').trim()
+              ? number(String(form.costPrice))
+              : undefined,
           };
           if (!p.name || !p.type) throw Error('Preencha nome e tipo do produto.');
           if (
@@ -183,16 +249,26 @@ export function EditorSheet({
             p.price < 0
           )
             throw Error('Informe estoque inteiro e preço não negativos.');
-          if (p.quantity < reserved(a, p.id))
-            throw Error('O estoque não pode ser menor que a quantidade reservada para entregas.');
+          if (p.costPrice !== undefined && (!Number.isFinite(p.costPrice) || p.costPrice < 0))
+            throw Error('Informe um custo unitário não negativo.');
           a.products[p.id] = p;
         } else if (editor.kind === 'client') {
+          const addressParts = form.addressParts as AddressParts;
           const c: Client = {
             ...form,
             name: form.name.trim(),
             day: number(String(form.day)),
             monthly: monthly ? form.monthly : [],
           };
+          const hasStructuredAddress = Object.entries(addressParts).some(
+            ([key, value]) => key !== 'country' && !!value.trim(),
+          );
+          c.address = hasStructuredAddress
+            ? formatAddressParts(addressParts)
+            : String(
+                form.address || (editor.kind === 'client' ? editor.item?.address : '') || '',
+              ).trim();
+          c.addressParts = hasStructuredAddress ? addressParts : undefined;
           delete c.latitude;
           delete c.longitude;
           if (!c.name) throw Error('Informe o nome do cliente.');
@@ -221,6 +297,24 @@ export function EditorSheet({
               throw Error('Informe quantidades inteiras maiores que zero.');
           }
           a.clients[c.id] = c;
+          if (oneTimeRoute && !original) {
+            if (!c.address || !oneTimeLines.length)
+              throw Error('Para criar a rota única, preencha o endereço e selecione os produtos.');
+            saveDelivery(a, {
+              id: uid(),
+              clientId: c.id,
+              clientName: c.name,
+              address: c.address,
+              date: oneTimeDate,
+              time: oneTimeTime,
+              duration: 30,
+              lines: oneTimeLines,
+              status: 'pending',
+              notes: 'Rota única criada junto com o cadastro do cliente.',
+              reminder: 30,
+              order: 0,
+            });
+          }
         } else if (editor.kind === 'appointment')
           saveAppointment(a, {
             ...form,
@@ -261,9 +355,10 @@ export function EditorSheet({
             {field('quantity', 'Quantidade em estoque', true)}
             {field('price', 'Preço unitário (R$)', true)}
           </View>
+          {field('costPrice', 'Quanto você paga por unidade (R$)', true)}
           <ThemedText size={12} muted>
-            O estoque é baixado ao concluir a entrega. As entregas pendentes reservam as
-            quantidades.
+            Informe seu custo para calcular margem e lucro bruto. Se deixar em branco, o produto
+            ficará fora desse cálculo.
           </ThemedText>
         </>
       )}
@@ -274,7 +369,62 @@ export function EditorSheet({
             {field('phone', 'Telefone')}
             {field('email', 'E-mail')}
           </View>
-          {field('address', 'Endereço completo para entrega', false, true)}
+          <ThemedText bold>Endereço de entrega</ThemedText>
+          {!!form.address && !(editor.kind === 'client' && editor.item?.addressParts) && (
+            <ThemedText size={12} muted>
+              Endereço atual: {form.address}. Preencha os campos abaixo para atualizá-lo.
+            </ThemedText>
+          )}
+          <View style={[layoutStyles.row, { flexWrap: 'wrap' }]}>
+            {addressField('street', 'Rua / avenida')}
+            {addressField('number', 'Número')}
+            {addressField('block', 'Bloco / unidade')}
+            {addressField('complement', 'Complemento')}
+            {addressField('neighborhood', 'Bairro')}
+            {addressField('postalCode', 'CEP')}
+            {addressField('city', 'Cidade')}
+            {addressField('state', 'Estado / UF')}
+            {addressField('country', 'País')}
+          </View>
+          <ThemedText size={12} muted>
+            A busca envia somente o endereço ao Nominatim/OpenStreetMap. Não inclua nome, telefone
+            ou outras informações pessoais. A consulta é manual e segue o limite de uma requisição
+            por segundo.
+          </ThemedText>
+          <Button
+            label={geocoding ? 'Buscando endereço…' : 'Buscar coordenadas no OpenStreetMap'}
+            icon={MapPin}
+            secondary
+            disabled={geocoding}
+            onPress={lookupCoordinates}
+          />
+          <Button
+            label="Ler política de uso do Nominatim"
+            small
+            secondary
+            onPress={() =>
+              void Linking.openURL('https://operations.osmfoundation.org/policies/nominatim/')
+            }
+          />
+          {!!geocodeError && <ThemedText color="#B33D3D">{geocodeError}</ThemedText>}
+          {geocodeSearched && !geocoding && !geocodeError && !geocodeMatches.length && (
+            <ThemedText muted>
+              Nenhum endereço encontrado. Complete mais campos ou insira as coordenadas manualmente.
+            </ThemedText>
+          )}
+          {geocodeMatches.map((match, index) => (
+            <Button
+              key={`${match.latitude}-${match.longitude}`}
+              small
+              secondary
+              label={`${index + 1}. ${match.displayName.slice(0, 90)} · ${match.latitude}, ${match.longitude}`}
+              onPress={() => {
+                update('latitude', String(match.latitude));
+                update('longitude', String(match.longitude));
+                setGeocodeMatches([]);
+              }}
+            />
+          ))}
           {field('notes', 'Observações', false, true)}
           <View style={layoutStyles.row}>
             {field('latitude', 'Latitude (opcional)', true)}
@@ -302,6 +452,31 @@ export function EditorSheet({
                 Meses mais curtos usam o último dia. Gere as entregas do mês na aba Entregas.
               </ThemedText>
               <LineEditor lines={form.monthly || []} onChange={(l) => update('monthly', l)} />
+            </>
+          )}
+          {!original && (
+            <>
+              <View style={layoutStyles.between}>
+                <ThemedText bold>Criar uma rota para este cliente agora</ThemedText>
+                <Switch
+                  accessibilityLabel="Criar uma única entrega para este cliente"
+                  value={oneTimeRoute}
+                  onValueChange={setOneTimeRoute}
+                  trackColor={{ true: t.primary }}
+                />
+              </View>
+              <ThemedText size={12} muted>
+                Esta atribuição cria uma única entrega na data escolhida. Ela não é mensal nem se
+                repete automaticamente.
+              </ThemedText>
+              {oneTimeRoute && (
+                <>
+                  <ThemedText bold>Data da entrega única · {oneTimeDate}</ThemedText>
+                  <Calendar value={oneTimeDate} onChange={setOneTimeDate} />
+                  <Field label="Horário da entrega" value={oneTimeTime} onChange={setOneTimeTime} />
+                  <LineEditor lines={oneTimeLines} onChange={setOneTimeLines} />
+                </>
+              )}
             </>
           )}
         </>

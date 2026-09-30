@@ -13,6 +13,7 @@ import {
   availableSlots,
   validateSlot,
   optimizeRoute,
+  stockShortages,
 } from '../src/domain';
 import { Delivery } from '../src/types';
 function fixture() {
@@ -95,7 +96,7 @@ test('conflicts include appointments and deliveries but allow adjacent intervals
   assert(!availableSlots(a, '2026-09-24').includes('10:00'));
   assert(availableSlots(a, '2026-09-24').includes('11:00'));
 });
-test('reservation prevents overselling and completion decreases stock once', () => {
+test('allows overstock demand, reports shortage, and blocks completion until replenished', () => {
   const a = fixture(),
     d = delivery();
   d.lines[0].quantity = 15;
@@ -104,9 +105,15 @@ test('reservation prevents overselling and completion decreases stock once', () 
   const d2 = delivery('d2');
   d2.time = '12:00';
   d2.lines[0].quantity = 6;
-  assert.throws(() => saveDelivery(a, d2), /insuficiente/);
+  saveDelivery(a, d2);
+  assert.equal(stockShortages(a)[0].missing, 1);
   completeDelivery(a, 'd');
   assert.equal(a.products.p.quantity, 5);
+  assert.equal(stockShortages(a)[0].missing, 1);
+  assert.throws(() => completeDelivery(a, 'd2'), /Estoque insuficiente/);
+  a.products.p.quantity = 6;
+  completeDelivery(a, 'd2');
+  assert.equal(a.products.p.quantity, 0);
   assert.equal(reserved(a, 'p'), 0);
   assert.throws(() => completeDelivery(a, 'd'));
 });

@@ -58,11 +58,25 @@ export function Products({ edit, notify }: PageProps) {
             <ThemedText size={25} bold>
               {money(p.price)}
             </ThemedText>
+            <ThemedText muted>
+              Custo: {p.costPrice === undefined ? 'não informado' : money(p.costPrice)}
+              {p.costPrice === undefined
+                ? ''
+                : ` · lucro bruto unitário ${money(p.price - p.costPrice)}`}
+            </ThemedText>
             <View style={layoutStyles.between}>
               <ThemedText muted>Estoque: {p.quantity}</ThemedText>
               <ThemedText muted>Reservado: {reserved(account, p.id)}</ThemedText>
             </View>
-            <ThemedText bold>Disponível: {p.quantity - reserved(account, p.id)}</ThemedText>
+            <ThemedText bold>
+              Disponível: {Math.max(0, p.quantity - reserved(account, p.id))}
+            </ThemedText>
+            {reserved(account, p.id) > p.quantity && (
+              <ThemedText color="#B33D3D" bold>
+                Demanda pendente acima do estoque: encomende {reserved(account, p.id) - p.quantity}{' '}
+                unidade(s).
+              </ThemedText>
+            )}
             <View style={layoutStyles.row}>
               <Button
                 label="Editar produto"

@@ -23,7 +23,7 @@ import {
   contrast,
 } from '../ui';
 import { useStore } from '../store';
-import { activities, dateKey, localDate, conflicts } from '../domain';
+import { activities, dateKey, localDate, conflicts, stockShortages } from '../domain';
 import { PageProps } from './types';
 
 import { ActivityRow } from '../Components/ActivityRow';
@@ -37,6 +37,7 @@ export function Dashboard({ edit, go }: PageProps) {
     all = activities(account),
     list = all.filter((x) => x.date === today),
     deliveries = Object.values(account.deliveries).filter((d) => d.date === today),
+    shortageItems = stockShortages(account),
     done = deliveries.filter((d) => d.status === 'delivered').length,
     total = deliveries.filter((d) => d.status !== 'cancelled').length;
   const conflictsCount = all.filter((x) => conflicts(account, x).length).length;
@@ -122,6 +123,21 @@ export function Dashboard({ edit, go }: PageProps) {
           </Pressable>
         ))}
       </View>
+
+      {shortageItems.length > 0 && (
+        <Card style={{ backgroundColor: '#FFF0D5', borderColor: '#E5B75D' }}>
+          <ThemedText size={18} bold color="#775922">
+            Demanda acima do estoque · encomende antes de concluir
+          </ThemedText>
+          {shortageItems.map((item) => (
+            <ThemedText key={item.productId} color="#775922">
+              {item.name}: {item.requested} em entregas pendentes, {item.onHand} em estoque — faltam{' '}
+              {item.missing}.
+            </ThemedText>
+          ))}
+          <Button label="Atualizar estoque" small secondary onPress={() => go?.('products')} />
+        </Card>
+      )}
 
       <View style={{ flexDirection: width > 1100 ? 'row' : 'column', gap: 18 }}>
         <View style={{ flex: 1, gap: 18 }}>

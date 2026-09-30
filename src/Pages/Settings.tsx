@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import { View, Pressable, Switch } from 'react-native';
-import { Check, Palette as PaletteIcon, Bell, User } from 'lucide-react-native';
+import { Check, Palette as PaletteIcon, Bell, User, Map } from 'lucide-react-native';
 import { Palette } from '../types';
 import { useStore } from '../store';
 import {
   ThemedText,
   Card,
   Button,
+  Chips,
   Field,
   ThemeContext,
   layoutStyles,
@@ -232,6 +233,33 @@ export function Settings({ notify }: { notify: (s: string) => void }) {
           O painel sempre mostra as próximas atividades. No Android/iOS, você também pode receber
           lembretes locais, mesmo com o app fechado. Abra o aplicativo após alterações feitas em
           outro aparelho para atualizar os lembretes.
+        </ThemedText>
+      </Card>
+      <Card>
+        <View style={layoutStyles.row}>
+          <Map color={theme.primary} />
+          <ThemedText size={20} bold>
+            Aplicativo de navegação
+          </ThemedText>
+        </View>
+        <ThemedText muted>Escolha qual GPS abrir nos botões de navegação das entregas.</ThemedText>
+        <Chips
+          options={[
+            { id: 'maps', label: 'Google Maps' },
+            { id: 'waze', label: 'Waze' },
+          ]}
+          value={account.settings.gpsApp || 'maps'}
+          onChange={(gpsApp) => {
+            void mutate((a) => {
+              a.settings.gpsApp = gpsApp as 'maps' | 'waze';
+            })
+              .then(() => notify('Aplicativo de navegação atualizado.'))
+              .catch((error) => notify((error as Error).message));
+          }}
+        />
+        <ThemedText size={12} muted>
+          O Maps pode abrir a rota por trechos. O Waze abre cada parada individualmente, na ordem
+          que você definiu.
         </ThemedText>
       </Card>
     </View>

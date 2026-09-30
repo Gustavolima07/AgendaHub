@@ -9,6 +9,7 @@ import {
   Truck,
   Palette,
   MapPin,
+  CircleDollarSign,
   X,
 } from 'lucide-react-native';
 import { router } from 'expo-router';
@@ -24,7 +25,15 @@ import {
 } from '../ui';
 
 type HelpKey =
-  'dashboard' | 'agenda' | 'clients' | 'products' | 'deliveries' | 'settings' | 'coordinates';
+  | 'dashboard'
+  | 'agenda'
+  | 'clients'
+  | 'products'
+  | 'deliveries'
+  | 'settings'
+  | 'coordinates'
+  | 'profit'
+  | 'geocoding';
 type HelpGuide = {
   id: HelpKey;
   title: string;
@@ -85,8 +94,8 @@ const helpGuides: HelpGuide[] = [
       'Cada cadastro guarda os dados de contato, endereço de entrega e relação do cliente com agenda e pedidos.',
     points: [
       '1 · Use Novo cliente para cadastrar nome e formas de contato.',
-      '2 · Informe o endereço completo. Para sugerir ordem por proximidade, preencha também latitude e longitude no cadastro/edição do cliente.',
-      '3 · Histórico abre pedidos, entregas e compromissos. Marque produtos mensais fixos, quantidade, dia e horário para gerar as entregas do mês.',
+      '2 · Informe o endereço separado em rua, número, bloco, complemento, bairro, CEP, cidade e estado. O botão Buscar coordenadas consulta o OpenStreetMap manualmente; escolha o resultado correto ou digite o par.',
+      '3 · Ao cadastrar, você pode criar uma entrega única com data, horário e produtos. Ela não é mensal e não se repete. Histórico abre pedidos e compromissos; produtos mensais fixos são uma opção diferente.',
     ],
     visualLabels: ['Contato', 'Endereço + coordenadas', 'Mensal fixo / histórico'],
   },
@@ -100,9 +109,45 @@ const helpGuides: HelpGuide[] = [
     points: [
       '1 · Cadastre nome e tipo para reconhecer o produto no catálogo.',
       '2 · Informe preço e quantidade em estoque. O saldo reservado aparece enquanto há entregas pendentes.',
-      '3 · Ao concluir uma entrega, o sistema baixa as unidades do estoque; ao cancelar, libera a reserva.',
+      '3 · Entregas podem ser cadastradas mesmo quando a demanda supera o estoque. O painel avisa quanto falta; o sistema só permite concluir quando houver unidades suficientes.',
     ],
-    visualLabels: ['Nome e tipo', 'Preço', 'Estoque disponível'],
+    visualLabels: ['Nome e tipo', 'Preço e custo', 'Estoque / reposição'],
+  },
+  {
+    id: 'profit',
+    title: 'Verificação de lucro',
+    group: 'Páginas do app',
+    icon: CircleDollarSign,
+    keywords: ['lucro', 'margem', 'custo', 'preço de compra', 'demanda', 'gráfico', 'vendas'],
+    intro: 'Compare preço de venda e custo unitário para acompanhar resultado por produto e mês.',
+    points: [
+      '1 · Em Produtos, informe quanto você paga por unidade; o custo fica associado aos novos pedidos.',
+      '2 · A página Lucro mostra vendas concluídas, lucro bruto conhecido e previsão separada dos pedidos pendentes.',
+      '3 · O gráfico anima vendas e lucro dos últimos seis meses. Linhas sem custo informado ficam fora do lucro e são contabilizadas no aviso.',
+    ],
+    visualLabels: ['Custo unitário', 'Vendas x lucro', 'Resultado por produto'],
+  },
+  {
+    id: 'geocoding',
+    title: 'Endereços e privacidade da busca',
+    group: 'Rotas e endereços',
+    icon: MapPin,
+    keywords: [
+      'nominatim',
+      'openstreetmap',
+      'osm',
+      'privacidade',
+      'buscar coordenadas',
+      'cep',
+      'rua',
+    ],
+    intro: 'A busca de coordenadas é acionada manualmente e mostra sugestões para você selecionar.',
+    points: [
+      '1 · Preencha rua, número, bairro, CEP, cidade e estado e toque em Buscar coordenadas no cadastro do cliente.',
+      '2 · Revise o ponto sugerido antes de selecioná-lo. A busca não é autocomplete e limita as consultas para respeitar o serviço público.',
+      '3 · O serviço público Nominatim pede que dados pessoais ou confidenciais não sejam enviados. Endereços residenciais podem ser sensíveis: consulte a política antes de usar; se não quiser compartilhar, preencha as coordenadas manualmente.',
+    ],
+    visualLabels: ['Campos separados', 'Sugestões para revisar', 'OpenStreetMap / Nominatim'],
   },
   {
     id: 'deliveries',
@@ -115,7 +160,7 @@ const helpGuides: HelpGuide[] = [
     points: [
       '1 · Em Entregas, escolha uma data no calendário e toque em Nova entrega para selecionar cliente, horário e produtos.',
       '2 · A aba Rota do dia reúne as pendentes. Use as setas para mudar a ordem, ou ordene por proximidade (estimativa por coordenadas, sem considerar trânsito).',
-      '3 · Abra cada destino no Waze ou use Abrir Maps para os trechos. Exportar rota cria uma lista de paradas. No escopo mensal, Exportar produtos do mês gera CSV somente com nome, tipo e quantidade.',
+      '3 · Em Personalizar, escolha Maps ou Waze como navegador preferido. A rota pode ser reordenada e exportada; os produtos mensais exportados incluem nome, tipo e quantidade.',
     ],
     visualLabels: ['Calendário + pedidos', 'Paradas reordenáveis', 'Exportação / navegação'],
   },
@@ -192,6 +237,18 @@ function GuidePreview({ guide }: { guide: HelpGuide }) {
       '📍 Ponto exato',
       '-23.55052, -46.63331',
       'Cliente · latitude / longitude',
+    ],
+    profit: [
+      'Verificação de lucro',
+      'Vendas concluídas',
+      'Lucro bruto · 6 meses',
+      'Resultado por produto',
+    ],
+    geocoding: [
+      'Endereço do cliente',
+      'Buscar coordenadas',
+      'Revise o resultado',
+      'OpenStreetMap / Nominatim',
     ],
   };
   const rows = descriptions[guide.id];
@@ -371,7 +428,11 @@ export function Help() {
                               ? '/produtos'
                               : guide.id === 'deliveries'
                                 ? '/entregas'
-                                : '/personalizar',
+                                : guide.id === 'profit'
+                                  ? '/lucro'
+                                  : guide.id === 'geocoding'
+                                    ? '/clientes'
+                                    : '/personalizar',
                     )
                   }
                 />

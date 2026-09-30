@@ -12,7 +12,7 @@ test('database isolates accounts and rejects invalid stock', async () => {
     projectId: 'demo-agendahub',
     database: {
       host: '127.0.0.1',
-      port: 9000,
+      port: 9001,
       rules: readFileSync('database.rules.json', 'utf8'),
     },
   });

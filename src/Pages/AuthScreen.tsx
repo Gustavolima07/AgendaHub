@@ -152,7 +152,7 @@ export function AuthScreen() {
               secure
               placeholder={mode === 'signup' ? 'Pelo menos 8 caracteres' : 'Sua senha'}
             />
-          )}{' '}
+          )}
           {!!message && (
             <ThemedText color={mode === 'reset' ? '#22634C' : '#B33D3D'}>{message}</ThemedText>
           )}

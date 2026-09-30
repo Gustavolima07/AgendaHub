@@ -5,6 +5,7 @@ import {
   Package,
   Truck,
   Palette,
+  CircleDollarSign,
   LucideIcon,
 } from 'lucide-react-native';
 
@@ -22,6 +23,7 @@ export const paths = {
   products: '/produtos',
   deliveries: '/entregas',
   settings: '/personalizar',
+  profit: '/lucro',
 } as const;
 export type NavId = keyof typeof paths;
 export const helpPath = '/ajuda' as const;
@@ -33,6 +35,7 @@ export const navigation: NavItem[] = [
   { id: 'products', label: 'Produtos', short: 'Produtos', icon: Package },
   { id: 'deliveries', label: 'Entregas e rotas', short: 'Entregas', icon: Truck },
   { id: 'settings', label: 'Personalizar', short: 'Cores', icon: Palette },
+  { id: 'profit', label: 'Verificação de lucro', short: 'Lucro', icon: CircleDollarSign },
 ];
 
 export const tabSubtitles: Record<string, string> = {
@@ -41,4 +44,5 @@ export const tabSubtitles: Record<string, string> = {
   products: 'Seu catálogo e estoque sempre à mão.',
   deliveries: 'Do planejamento à porta do seu cliente.',
   settings: 'Deixe o AgendaHub do seu jeito.',
+  profit: 'Acompanhe vendas, custos e lucro bruto estimado.',
 };

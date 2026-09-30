@@ -21,6 +21,7 @@ import {
   completeDelivery,
   cancelDelivery,
   mapsUrls,
+  wazeUrl,
   dateLabel,
   money,
 } from '../domain';
@@ -80,6 +81,17 @@ export function Deliveries({ edit, notify }: PageProps) {
 
   // URLs do Maps memorizadas
   const computedMapsUrls = useMemo(() => mapsUrls(route), [route]);
+  const gpsApp = account.settings.gpsApp || 'maps';
+  const openInGps = (delivery: Delivery) => {
+    const client = account.clients[delivery.clientId];
+    const url =
+      gpsApp === 'waze'
+        ? wazeUrl(delivery.address, client?.latitude, client?.longitude)
+        : mapsUrls([delivery])[0];
+    void Linking.openURL(url).catch(() =>
+      notify(`Não foi possível abrir ${gpsApp === 'waze' ? 'o Waze' : 'o Maps'}.`),
+    );
+  };
 
   // Exportação de TXT da Rota
   async function exportRoute() {
@@ -91,8 +103,16 @@ export function Deliveries({ edit, notify }: PageProps) {
         [
           'AgendaHub • Rota ' + date,
           ...route.map((d, i) => `${i + 1}. ${d.clientName} • ${d.time}\n${d.address}`),
-          'Google Maps (trechos na ordem):',
-          ...computedMapsUrls,
+          `${gpsApp === 'waze' ? 'Waze (um destino por parada)' : 'Google Maps (trechos na ordem)'}:`,
+          ...(gpsApp === 'waze'
+            ? route.map((delivery) =>
+                wazeUrl(
+                  delivery.address,
+                  account.clients[delivery.clientId]?.latitude,
+                  account.clients[delivery.clientId]?.longitude,
+                ),
+              )
+            : computedMapsUrls),
         ].join('\n\n'),
         'text/plain',
       );
@@ -323,18 +343,19 @@ export function Deliveries({ edit, notify }: PageProps) {
               trânsito ou janelas de horário. Revise a ordem antes de sair.
             </ThemedText>
 
-            {computedMapsUrls.map((url, i) => (
-              <Button
-                key={`${url}-${i}`}
-                label={`Abrir Maps${computedMapsUrls.length > 1 ? ` • trecho ${i + 1}` : ''}`}
-                secondary
-                small
-                icon={Navigation}
-                onPress={() =>
-                  Linking.openURL(url).catch(() => notify('Não foi possível abrir o Maps.'))
-                }
-              />
-            ))}
+            {gpsApp === 'maps' &&
+              computedMapsUrls.map((url, i) => (
+                <Button
+                  key={`${url}-${i}`}
+                  label={`Abrir Maps${computedMapsUrls.length > 1 ? ` • trecho ${i + 1}` : ''}`}
+                  secondary
+                  small
+                  icon={Navigation}
+                  onPress={() =>
+                    Linking.openURL(url).catch(() => notify('Não foi possível abrir o Maps.'))
+                  }
+                />
+              ))}
           </Card>
 
           {route.map((d, i) => (
@@ -383,14 +404,11 @@ export function Deliveries({ edit, notify }: PageProps) {
                   onPress={() => edit({ kind: 'delivery', item: d })}
                 />
                 <Button
-                  label="Waze até aqui"
+                  label={`Abrir ${gpsApp === 'waze' ? 'Waze' : 'Google Maps'}`}
                   small
                   secondary
-                  onPress={() =>
-                    Linking.openURL(
-                      `https://waze.com/ul?q=${encodeURIComponent(d.address)}&navigate=yes`,
-                    ).catch(() => notify('Não foi possível abrir o Waze.'))
-                  }
+                  icon={Navigation}
+                  onPress={() => openInGps(d)}
                 />
                 <Button
                   label="Concluir"
