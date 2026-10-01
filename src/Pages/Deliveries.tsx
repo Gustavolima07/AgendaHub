@@ -35,11 +35,13 @@ import {
 } from '../geocoding';
 import { PageProps } from './types';
 import { DraggableRouteCard } from '../Components/DraggableRouteCard';
+import { usePageScroll } from '../Components/PageFrame';
 type DeliveryStatus = Delivery['status'];
 
 export function Deliveries({ edit, notify }: PageProps) {
   const { account, mutate } = useStore();
   const theme = useTheme();
+  const pageScroll = usePageScroll();
   // Estados da Tela
   const [tab, setTab] = useState<'list' | 'route'>('list');
   const [scope, setScope] = useState<'day' | 'month'>('day');
@@ -152,9 +154,17 @@ export function Deliveries({ edit, notify }: PageProps) {
 
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dropTargetIndex, setDropTargetIndex] = useState<number | null>(null);
+  const [scrollAdjustment, setScrollAdjustment] = useState(0);
   const routeRef = useRef(route);
   const orderRef = useRef(order);
   const cardLayouts = useRef<Record<string, { y: number; height: number }>>({});
+  const dragging = useRef<{ id: string | null; translationY: number }>({
+    id: null,
+    translationY: 0,
+  });
+  const scrollAdjustmentRef = useRef(0);
+  const autoScrollDirection = useRef(0);
+  const autoScrollTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   useEffect(() => {
     routeRef.current = route;
     orderRef.current = order;
@@ -181,33 +191,76 @@ export function Deliveries({ edit, notify }: PageProps) {
     });
     return nearestIndex;
   }, []);
+  const stopAutoScroll = useCallback(() => {
+    if (autoScrollTimer.current) clearInterval(autoScrollTimer.current);
+    autoScrollTimer.current = null;
+    autoScrollDirection.current = 0;
+  }, []);
+  useEffect(() => stopAutoScroll, [stopAutoScroll]);
   const startDrag = useCallback((id: string) => {
+    dragging.current = { id, translationY: 0 };
+    scrollAdjustmentRef.current = 0;
+    setScrollAdjustment(0);
     setDraggingId(id);
     setDropTargetIndex(routeRef.current.findIndex((delivery) => delivery.id === id));
   }, []);
   const moveDrag = useCallback(
-    (id: string, translationY: number) => {
-      const nextIndex = targetIndexAt(id, translationY);
+    (id: string, translationY: number, absoluteY: number) => {
+      dragging.current = { id, translationY };
+      const viewport = pageScroll?.getViewport();
+      const direction =
+        viewport && viewport.bottom > viewport.top
+          ? absoluteY < viewport.top + 80
+            ? -1
+            : absoluteY > viewport.bottom - 80
+              ? 1
+              : 0
+          : 0;
+      if (direction !== autoScrollDirection.current) {
+        stopAutoScroll();
+        autoScrollDirection.current = direction;
+        if (direction && pageScroll)
+          autoScrollTimer.current = setInterval(() => {
+            const moved = pageScroll.scrollBy(direction * 10);
+            if (!moved) return;
+            scrollAdjustmentRef.current += moved;
+            setScrollAdjustment(scrollAdjustmentRef.current);
+            const activeId = dragging.current.id;
+            if (activeId)
+              setDropTargetIndex(
+                targetIndexAt(
+                  activeId,
+                  dragging.current.translationY + scrollAdjustmentRef.current,
+                ),
+              );
+          }, 16);
+      }
+      const nextIndex = targetIndexAt(id, translationY + scrollAdjustmentRef.current);
       setDropTargetIndex((currentIndex) => (currentIndex === nextIndex ? currentIndex : nextIndex));
     },
-    [targetIndexAt],
+    [pageScroll, stopAutoScroll, targetIndexAt],
   );
   const endDrag = useCallback(
     (id: string, translationY: number) => {
+      stopAutoScroll();
       const currentRoute = routeRef.current;
       const from = currentRoute.findIndex((delivery) => delivery.id === id);
-      const to = targetIndexAt(id, translationY);
+      const to = targetIndexAt(id, translationY + scrollAdjustmentRef.current);
       if (from < 0 || to < 0 || from === to) return;
       const reordered = [...currentRoute];
       reordered.splice(to, 0, ...reordered.splice(from, 1));
       void orderRef.current(reordered);
     },
-    [targetIndexAt],
+    [stopAutoScroll, targetIndexAt],
   );
   const cancelDrag = useCallback(() => {
+    stopAutoScroll();
+    dragging.current = { id: null, translationY: 0 };
+    scrollAdjustmentRef.current = 0;
+    setScrollAdjustment(0);
     setDraggingId(null);
     setDropTargetIndex(null);
-  }, []);
+  }, [stopAutoScroll]);
   const moveCardForAccessibility = useCallback((id: string, direction: -1 | 1) => {
     const currentRoute = routeRef.current;
     const index = currentRoute.findIndex((delivery) => delivery.id === id);
@@ -582,6 +635,7 @@ export function Deliveries({ edit, notify }: PageProps) {
                 isDragging={draggingId === d.id}
                 isDropTarget={draggingId !== null && dropTargetIndex === i}
                 highlightColor={theme.primary}
+                scrollAdjustment={draggingId === d.id ? scrollAdjustment : 0}
                 onMeasure={measureCard}
                 onDragStart={startDrag}
                 onDragMove={moveDrag}

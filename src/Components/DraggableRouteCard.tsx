@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { LayoutChangeEvent, Platform, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
@@ -15,9 +15,10 @@ type Props = {
   isDragging: boolean;
   isDropTarget: boolean;
   highlightColor: string;
+  scrollAdjustment: number;
   onMeasure: (id: string, y: number, height: number) => void;
   onDragStart: (id: string) => void;
-  onDragMove: (id: string, translationY: number) => void;
+  onDragMove: (id: string, translationY: number, absoluteY: number) => void;
   onDragEnd: (id: string, translationY: number) => void;
   onDragCancel: () => void;
   children: React.ReactNode;
@@ -30,7 +31,7 @@ function nativeDragGesture(
   scale: SharedValue<number>,
   translationY: SharedValue<number>,
   onDragStart: (id: string) => void,
-  onDragMove: (id: string, translationY: number) => void,
+  onDragMove: (id: string, translationY: number, absoluteY: number) => void,
   onDragEnd: (id: string, translationY: number) => void,
   onDragCancel: () => void,
 ) {
@@ -42,7 +43,7 @@ function nativeDragGesture(
     })
     .onUpdate((event) => {
       translationY.value = event.translationY;
-      scheduleOnRN(onDragMove, id, event.translationY);
+      scheduleOnRN(onDragMove, id, event.translationY, event.absoluteY);
     })
     .onEnd((event) => scheduleOnRN(onDragEnd, id, event.translationY))
     .onFinalize(() => {
@@ -53,12 +54,17 @@ function nativeDragGesture(
     });
 }
 
+function updateSharedOffset(offset: SharedValue<number>, value: number) {
+  offset.value = value;
+}
+
 export function DraggableRouteCard({
   id,
   disabled,
   isDragging,
   isDropTarget,
   highlightColor,
+  scrollAdjustment,
   onMeasure,
   onDragStart,
   onDragMove,
@@ -69,10 +75,14 @@ export function DraggableRouteCard({
   const translationY = useSharedValue(0);
   const active = useSharedValue(false);
   const scale = useSharedValue(1);
+  const scrollOffset = useSharedValue(0);
+  useEffect(() => {
+    updateSharedOffset(scrollOffset, scrollAdjustment);
+  }, [scrollAdjustment, scrollOffset]);
   const [webTranslationY, setWebTranslationY] = useState(0);
   const [webActive, setWebActive] = useState(false);
   const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: translationY.value }, { scale: scale.value }],
+    transform: [{ translateY: translationY.value + scrollOffset.value }, { scale: scale.value }],
     zIndex: active.value ? 20 : 0,
     elevation: active.value ? 10 : 0,
   }));
@@ -87,7 +97,7 @@ export function DraggableRouteCard({
         })
         .onUpdate((event) => {
           setWebTranslationY(event.translationY);
-          onDragMove(id, event.translationY);
+          onDragMove(id, event.translationY, event.absoluteY);
         })
         .onEnd((event) => onDragEnd(id, event.translationY))
         .onFinalize(() => {
@@ -128,7 +138,10 @@ export function DraggableRouteCard({
           style={[
             borderStyle,
             {
-              transform: [{ translateY: webTranslationY }, { scale: webActive ? 1.025 : 1 }],
+              transform: [
+                { translateY: webTranslationY + scrollAdjustment },
+                { scale: webActive ? 1.025 : 1 },
+              ],
               zIndex: webActive ? 20 : 0,
             },
           ]}
