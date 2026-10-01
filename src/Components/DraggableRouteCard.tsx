@@ -114,13 +114,18 @@ export function DraggableRouteCard({
   }, [applyWebTransform, onDragCancel]);
   const gesture = useMemo(() => {
     const pan = Gesture.Pan().enabled(!disabled).activateAfterLongPress(350);
-    if (Platform.OS === 'web')
-      return pan
+    if (Platform.OS === 'web') {
+      // These callbacks are registered now, but their refs are read only during a gesture.
+      /* eslint-disable react-hooks/refs */
+      const webGesture = pan
         .runOnJS(true)
         .onStart(handleWebStart)
         .onUpdate(handleWebUpdate)
         .onEnd((event) => onDragEnd(id, event.translationY))
         .onFinalize(handleWebFinalize);
+      /* eslint-enable react-hooks/refs */
+      return webGesture;
+    }
     return nativeDragGesture(
       pan,
       id,

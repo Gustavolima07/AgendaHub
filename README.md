@@ -158,17 +158,25 @@ npm run deploy
 
 O comando gera `dist/` e publica Hosting e regras no projeto configurado. O Firebase Hosting fornece HTTPS. O app web inicia na tela de login e a conta do usuário começa sem dados de demonstração.
 
-## Builds Android e iOS
+## Android e atualizações no celular
 
-O arquivo `eas.json` inclui os perfis development, preview (APK Android) e production. Para gerar binários, use sua conta Expo e configure o projeto EAS:
+O projeto está vinculado a [@luis_gustavo7/agendahub](https://expo.dev/accounts/luis_gustavo7/projects/agendahub). O perfil `preview` gera um APK instalável no celular e recebe atualizações do canal `preview`. O perfil `production` gera o pacote para publicação na loja e usa o canal `production`. O EAS Update já está configurado no `app.json`.
 
-```bash
-npx eas-cli@latest login
-npx eas-cli@latest build:configure
+A busca de endereços no Android precisa de `EXPO_PUBLIC_GOOGLE_MAPS_ANDROID_API_KEY` e `EXPO_PUBLIC_GOOGLE_MAPS_ANDROID_CERT_SHA1` no ambiente **preview** do EAS. A chave Google deve ser restrita ao pacote `com.gustavolima07.agendahub` e ao SHA-1 do certificado que assina o APK; a chave web de `.env.local` não a substitui. Você pode gerar o primeiro APK para obter o SHA-1 nas credenciais Android do projeto EAS, configurar a chave e essas variáveis no painel do projeto e então publicar uma atualização no canal `preview`. Até isso ser feito, a busca de endereços nativa ficará indisponível. Essas variáveis são incorporadas ao código do app e não devem ser tratadas como segredos de servidor.
+
+```powershell
 npx eas-cli@latest build --platform android --profile preview
 ```
 
-Publicar nas lojas exige as contas de desenvolvedor e a assinatura correspondentes. O repositório inclui o código nativo compartilhado e a configuração; um deploy web não gera nem publica APK/IPA automaticamente.
+Abra o link do build no celular e instale o APK. Depois de alterar apenas código JavaScript/TypeScript, estilos ou imagens, publique uma atualização para o **mesmo canal**:
+
+```powershell
+npx eas-cli@latest update --channel preview --environment preview --message "Descrição da mudança"
+```
+
+O APK instalado verifica atualizações ao iniciar, baixa a nova versão em segundo plano e a aplica quando o aplicativo for fechado e aberto novamente. Isso não depende do Firebase Hosting nem de reinstalar o APK. Para uma versão da loja, publique no canal `production` com `--environment production`.
+
+Mudanças nativas, instalação de biblioteca com código nativo, alteração de permissões ou atualização do SDK exigem **outro build**. Nesse caso, aumente `expo.version` em `app.json`, gere um novo APK com o mesmo perfil e instale-o por cima do anterior; mantenha o identificador `android.package` e as credenciais de assinatura. Os perfis `preview` e `production` aumentam o código interno da versão a cada build. As atualizações OTA só alcançam builds com a mesma versão de runtime.
 
 ## Estrutura
 
