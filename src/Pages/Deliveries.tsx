@@ -77,8 +77,16 @@ export function Deliveries({ edit, notify }: PageProps) {
   const route = useMemo(() => {
     return Object.values(account.deliveries || {})
       .filter((d) => d.date === date && d.status === 'pending')
+      .map((delivery) => {
+        const client = account.clients[delivery.clientId];
+        return {
+          ...delivery,
+          clientName: client?.name || delivery.clientName,
+          address: client?.address?.trim() || delivery.address,
+        };
+      })
       .sort((a, b) => (a.order ?? 0) - (b.order ?? 0) || a.time.localeCompare(b.time));
-  }, [account.deliveries, date]);
+  }, [account.clients, account.deliveries, date]);
 
   // URLs do Maps memorizadas
   const computedMapsUrls = useMemo(() => mapsUrls(route), [route]);
