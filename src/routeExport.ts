@@ -8,11 +8,16 @@ function csvCell(value: string) {
   return `"${safeValue.replace(/"/g, '""')}"`;
 }
 
-function routeGpsUrl(account: Account, delivery: Delivery, gpsApp: GpsApp) {
+function routeGpsUrl(
+  account: Account,
+  delivery: Delivery,
+  gpsApp: GpsApp,
+  startingAddress?: string,
+) {
   const client = account.clients[delivery.clientId];
   return gpsApp === 'waze'
     ? wazeUrl(delivery.address, client?.latitude, client?.longitude)
-    : mapsUrls([delivery])[0] || '';
+    : mapsUrls([delivery], startingAddress)[0] || '';
 }
 
 function escapeHtml(value: string) {
@@ -24,7 +29,12 @@ function escapeHtml(value: string) {
     .replace(/'/g, '&#39;');
 }
 
-export function routeCsv(account: Account, route: Delivery[], gpsApp: GpsApp) {
+export function routeCsv(
+  account: Account,
+  route: Delivery[],
+  gpsApp: GpsApp,
+  startingAddress?: string,
+) {
   const rows = route.map((delivery, index) => {
     const client = account.clients[delivery.clientId];
     const products = (delivery.lines || [])
@@ -38,7 +48,7 @@ export function routeCsv(account: Account, route: Delivery[], gpsApp: GpsApp) {
       products,
       client?.latitude == null ? '' : String(client.latitude),
       client?.longitude == null ? '' : String(client.longitude),
-      routeGpsUrl(account, delivery, gpsApp),
+      routeGpsUrl(account, delivery, gpsApp, startingAddress),
     ]
       .map((value, cellIndex) =>
         cellIndex === 0 || cellIndex === 5 || cellIndex === 6 ? value : csvCell(value),
@@ -51,7 +61,13 @@ export function routeCsv(account: Account, route: Delivery[], gpsApp: GpsApp) {
   );
 }
 
-export function routePdfHtml(account: Account, route: Delivery[], date: string, gpsApp: GpsApp) {
+export function routePdfHtml(
+  account: Account,
+  route: Delivery[],
+  date: string,
+  gpsApp: GpsApp,
+  startingAddress?: string,
+) {
   const stops = route
     .map(
       (delivery, index) => `<p class="stop">
@@ -62,8 +78,8 @@ export function routePdfHtml(account: Account, route: Delivery[], date: string, 
     .join('');
   const navigationUrls =
     gpsApp === 'maps'
-      ? mapsUrls(route)
-      : route.map((delivery) => routeGpsUrl(account, delivery, gpsApp));
+      ? mapsUrls(route, startingAddress)
+      : route.map((delivery) => routeGpsUrl(account, delivery, gpsApp, startingAddress));
   const navigationLinks = navigationUrls
     .map(
       (url, index) =>

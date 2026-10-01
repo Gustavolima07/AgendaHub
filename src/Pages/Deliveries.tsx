@@ -1,14 +1,14 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { View, Linking, StyleSheet } from 'react-native';
-import { ThemedText, Card, Button, IconButton, Chips, Badge, Empty, Calendar } from '../ui';
+import { ThemedText, Card, Button, Chips, Badge, Empty, Calendar, Field, useTheme } from '../ui';
 import {
   Plus,
   Download,
   Check,
   Pencil,
-  ChevronUp,
-  ChevronDown,
+  GripVertical,
   Navigation,
+  MapPin,
 } from 'lucide-react-native';
 
 import { useStore } from '../store';
@@ -27,41 +27,103 @@ import {
 } from '../domain';
 import { exportPdf, exportText } from '../export';
 import { routeCsv, routePdfHtml } from '../routeExport';
+import {
+  createGooglePlacesSession,
+  getGoogleAddressDetails,
+  GoogleAddressPrediction,
+  searchGoogleAddresses,
+} from '../geocoding';
 import { PageProps } from './types';
+import { DraggableRouteCard } from '../Components/DraggableRouteCard';
 type DeliveryStatus = Delivery['status'];
 
 export function Deliveries({ edit, notify }: PageProps) {
   const { account, mutate } = useStore();
+  const theme = useTheme();
   // Estados da Tela
   const [tab, setTab] = useState<'list' | 'route'>('list');
   const [scope, setScope] = useState<'day' | 'month'>('day');
   const [statusFilter, setStatusFilter] = useState<'all' | DeliveryStatus>('all');
   const [date, setDate] = useState<string>(dateKey());
   const [busy, setBusy] = useState<boolean>(false);
+  const [routeStartQuery, setRouteStartQuery] = useState('');
+  const [routeStart, setRouteStart] = useState<{
+    address: string;
+    latitude: number;
+    longitude: number;
+  } | null>(null);
+  const [routeStartPredictions, setRouteStartPredictions] = useState<GoogleAddressPrediction[]>([]);
+  const [routeStartSession] = useState(createGooglePlacesSession);
+  const [routeStartLoading, setRouteStartLoading] = useState(false);
+  const [routeStartError, setRouteStartError] = useState('');
 
   // Executador genérico de mutações com feedback
-  const run = async (action: (draft: Account) => void, successMessage: string) => {
+  const run = useCallback(
+    async (action: (draft: Account) => void, successMessage: string) => {
+      try {
+        setBusy(true);
+        await mutate(action);
+        notify(successMessage);
+      } catch (e) {
+        notify((e as Error).message);
+      } finally {
+        setBusy(false);
+      }
+    },
+    [mutate, notify],
+  );
+
+  async function searchRouteStart() {
+    setRouteStartError('');
+    setRouteStartPredictions([]);
+    setRouteStartLoading(true);
     try {
-      setBusy(true);
-      await mutate(action);
-      notify(successMessage);
-    } catch (e) {
-      notify((e as Error).message);
+      const predictions = await searchGoogleAddresses(routeStartQuery, routeStartSession);
+      setRouteStartPredictions(predictions);
+      if (!predictions.length)
+        setRouteStartError('O Google não encontrou sugestões para esse endereço.');
+    } catch (error) {
+      setRouteStartError((error as Error).message);
     } finally {
-      setBusy(false);
+      setRouteStartLoading(false);
     }
-  };
+  }
+
+  async function selectRouteStart(prediction: GoogleAddressPrediction) {
+    setRouteStartError('');
+    setRouteStartLoading(true);
+    try {
+      const details = await getGoogleAddressDetails(prediction, routeStartSession);
+      if (!Number.isFinite(details.latitude) || !Number.isFinite(details.longitude))
+        throw new Error('O Google não retornou as coordenadas deste ponto inicial.');
+      const selectedStart = {
+        address: details.formattedAddress,
+        latitude: details.latitude!,
+        longitude: details.longitude!,
+      };
+      setRouteStart(selectedStart);
+      setRouteStartQuery(selectedStart.address);
+      setRouteStartPredictions([]);
+    } catch (error) {
+      setRouteStartError((error as Error).message);
+    } finally {
+      setRouteStartLoading(false);
+    }
+  }
 
   // Reordenação de Rota
-  const order = async (newRoute: Delivery[]) => {
-    await run((draft) => {
-      newRoute.forEach((item, index) => {
-        if (draft.deliveries[item.id]) {
-          draft.deliveries[item.id].order = index;
-        }
-      });
-    }, 'Ordem da rota atualizada.');
-  };
+  const order = useCallback(
+    async (newRoute: Delivery[]) => {
+      await run((draft) => {
+        newRoute.forEach((item, index) => {
+          if (draft.deliveries[item.id]) {
+            draft.deliveries[item.id].order = index;
+          }
+        });
+      }, 'Ordem da rota atualizada.');
+    },
+    [run],
+  );
 
   // Filtro de entregas para a aba Lista
   const list = useMemo(() => {
@@ -88,8 +150,79 @@ export function Deliveries({ edit, notify }: PageProps) {
       .sort((a, b) => (a.order ?? 0) - (b.order ?? 0) || a.time.localeCompare(b.time));
   }, [account.clients, account.deliveries, date]);
 
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [dropTargetIndex, setDropTargetIndex] = useState<number | null>(null);
+  const routeRef = useRef(route);
+  const orderRef = useRef(order);
+  const cardLayouts = useRef<Record<string, { y: number; height: number }>>({});
+  useEffect(() => {
+    routeRef.current = route;
+    orderRef.current = order;
+  }, [order, route]);
+
+  const measureCard = useCallback((id: string, y: number, height: number) => {
+    cardLayouts.current[id] = { y, height };
+  }, []);
+  const targetIndexAt = useCallback((id: string, translationY: number) => {
+    const currentRoute = routeRef.current;
+    const source = cardLayouts.current[id];
+    if (!source) return currentRoute.findIndex((delivery) => delivery.id === id);
+    const draggedCenter = source.y + source.height / 2 + translationY;
+    let nearestIndex = 0;
+    let nearestDistance = Number.POSITIVE_INFINITY;
+    currentRoute.forEach((delivery, index) => {
+      const layout = cardLayouts.current[delivery.id];
+      if (!layout) return;
+      const distance = Math.abs(draggedCenter - layout.y - layout.height / 2);
+      if (distance < nearestDistance) {
+        nearestDistance = distance;
+        nearestIndex = index;
+      }
+    });
+    return nearestIndex;
+  }, []);
+  const startDrag = useCallback((id: string) => {
+    setDraggingId(id);
+    setDropTargetIndex(routeRef.current.findIndex((delivery) => delivery.id === id));
+  }, []);
+  const moveDrag = useCallback(
+    (id: string, translationY: number) => {
+      const nextIndex = targetIndexAt(id, translationY);
+      setDropTargetIndex((currentIndex) => (currentIndex === nextIndex ? currentIndex : nextIndex));
+    },
+    [targetIndexAt],
+  );
+  const endDrag = useCallback(
+    (id: string, translationY: number) => {
+      const currentRoute = routeRef.current;
+      const from = currentRoute.findIndex((delivery) => delivery.id === id);
+      const to = targetIndexAt(id, translationY);
+      if (from < 0 || to < 0 || from === to) return;
+      const reordered = [...currentRoute];
+      reordered.splice(to, 0, ...reordered.splice(from, 1));
+      void orderRef.current(reordered);
+    },
+    [targetIndexAt],
+  );
+  const cancelDrag = useCallback(() => {
+    setDraggingId(null);
+    setDropTargetIndex(null);
+  }, []);
+  const moveCardForAccessibility = useCallback((id: string, direction: -1 | 1) => {
+    const currentRoute = routeRef.current;
+    const index = currentRoute.findIndex((delivery) => delivery.id === id);
+    const target = index + direction;
+    if (index < 0 || target < 0 || target >= currentRoute.length) return;
+    const reordered = [...currentRoute];
+    reordered.splice(target, 0, ...reordered.splice(index, 1));
+    void orderRef.current(reordered);
+  }, []);
+
   // URLs do Maps memorizadas
-  const computedMapsUrls = useMemo(() => mapsUrls(route), [route]);
+  const computedMapsUrls = useMemo(
+    () => mapsUrls(route, routeStart?.address),
+    [route, routeStart?.address],
+  );
   const gpsApp = account.settings.gpsApp || 'maps';
   const openInGps = (delivery: Delivery) => {
     const client = account.clients[delivery.clientId];
@@ -105,7 +238,7 @@ export function Deliveries({ edit, notify }: PageProps) {
   async function exportRouteSpreadsheet() {
     try {
       if (!route.length) throw new Error('Adicione entregas pendentes para montar a rota.');
-      await exportText(`rota-${date}.csv`, routeCsv(account, route, gpsApp));
+      await exportText(`rota-${date}.csv`, routeCsv(account, route, gpsApp, routeStart?.address));
       notify('Planilha da rota exportada em CSV.');
     } catch (e) {
       notify((e as Error).message);
@@ -115,7 +248,10 @@ export function Deliveries({ edit, notify }: PageProps) {
   async function exportRoutePdf() {
     try {
       if (!route.length) throw new Error('Adicione entregas pendentes para montar a rota.');
-      await exportPdf(`rota-${date}.pdf`, routePdfHtml(account, route, date, gpsApp));
+      await exportPdf(
+        `rota-${date}.pdf`,
+        routePdfHtml(account, route, date, gpsApp, routeStart?.address),
+      );
       notify('PDF da rota preparado para salvar ou compartilhar.');
     } catch (e) {
       notify((e as Error).message);
@@ -312,9 +448,52 @@ export function Deliveries({ edit, notify }: PageProps) {
               Sua rota • {dateLabel(date)}
             </ThemedText>
             <ThemedText muted>
-              Adicione uma entrega para incluir um cliente. Use as setas para alterar a ordem; edite
-              uma parada para mudar data, horário ou destinatário.
+              Adicione uma entrega para incluir um cliente. Segure o card e arraste para mudar a
+              ordem das paradas; edite uma parada para mudar data, horário ou destinatário.
             </ThemedText>
+
+            <Field
+              label={'Endere\u00e7o inicial da rota (opcional)'}
+              value={routeStartQuery}
+              placeholder={'Pesquise um endere\u00e7o no Google Maps'}
+              onChange={(value) => {
+                setRouteStartQuery(value);
+                setRouteStart(null);
+                setRouteStartError('');
+                setRouteStartPredictions([]);
+              }}
+            />
+            <Button
+              label={
+                routeStartLoading ? 'Pesquisando endereço...' : 'Buscar ponto inicial no Google'
+              }
+              icon={MapPin}
+              secondary
+              small
+              disabled={routeStartLoading || routeStartQuery.trim().length < 4}
+              onPress={() => void searchRouteStart()}
+            />
+            {!!routeStartError && (
+              <ThemedText size={12} muted>
+                {routeStartError}
+              </ThemedText>
+            )}
+            {routeStartPredictions.map((prediction) => (
+              <Button
+                key={prediction.placeId}
+                label={prediction.description}
+                icon={MapPin}
+                secondary
+                small
+                disabled={routeStartLoading}
+                onPress={() => void selectRouteStart(prediction)}
+              />
+            ))}
+            {!!routeStart && (
+              <ThemedText size={12} muted>
+                {'Ponto inicial selecionado. As paradas ser\u00e3o ordenadas a partir dele.'}
+              </ThemedText>
+            )}
 
             <View style={deliveryStyles.wrap}>
               <Button
@@ -330,7 +509,19 @@ export function Deliveries({ edit, notify }: PageProps) {
                 disabled={busy || route.length < 2}
                 onPress={() => {
                   try {
-                    void order(optimizeRoute(account, route));
+                    if (routeStartQuery.trim() && !routeStart) {
+                      notify('Escolha uma sugest\u00e3o do Google para definir o ponto inicial.');
+                      return;
+                    }
+                    void order(
+                      optimizeRoute(
+                        account,
+                        route,
+                        routeStart
+                          ? { latitude: routeStart.latitude, longitude: routeStart.longitude }
+                          : undefined,
+                      ),
+                    );
                   } catch (e) {
                     notify((e as Error).message);
                   }
@@ -355,15 +546,23 @@ export function Deliveries({ edit, notify }: PageProps) {
             </View>
 
             <ThemedText size={12} muted>
-              A sugestão usa distância entre coordenadas, mantém a primeira parada e não considera
-              trânsito ou janelas de horário. Revise a ordem antes de sair.
+              {routeStart
+                ? 'A ordena\u00e7\u00e3o come\u00e7a pelo ponto inicial selecionado e segue pela pr\u00f3xima parada mais pr\u00f3xima.'
+                : 'Sem ponto inicial, a ordena\u00e7\u00e3o mant\u00e9m a primeira parada atual. A dist\u00e2ncia n\u00e3o considera tr\u00e2nsito ou hor\u00e1rios.'}
             </ThemedText>
+
+            {gpsApp === 'maps' && route.length > 4 && (
+              <ThemedText size={12} muted>
+                No celular, o Maps aceita poucos pontos por link. A rota agora fica dividida em
+                trechos consecutivos; abra cada trecho para percorrer todos os destinos.
+              </ThemedText>
+            )}
 
             {gpsApp === 'maps' &&
               computedMapsUrls.map((url, i) => (
                 <Button
                   key={`${url}-${i}`}
-                  label={`Abrir Maps${computedMapsUrls.length > 1 ? ` • trecho ${i + 1}` : ''}`}
+                  label={`Abrir Maps${computedMapsUrls.length > 1 ? ` - trecho ${i + 1}/${computedMapsUrls.length}` : ''}`}
                   secondary
                   small
                   icon={Navigation}
@@ -374,67 +573,88 @@ export function Deliveries({ edit, notify }: PageProps) {
               ))}
           </Card>
 
-          {route.map((d, i) => (
-            <Card key={d.id}>
-              <View style={deliveryStyles.row}>
-                <Badge>{i + 1}</Badge>
-                <View style={{ flex: 1 }}>
-                  <ThemedText bold size={18}>
-                    {d.clientName}
-                  </ThemedText>
+          <View style={deliveryStyles.stack}>
+            {route.map((d, i) => (
+              <DraggableRouteCard
+                key={d.id}
+                id={d.id}
+                disabled={busy || route.length < 2}
+                isDragging={draggingId === d.id}
+                isDropTarget={draggingId !== null && dropTargetIndex === i}
+                highlightColor={theme.primary}
+                onMeasure={measureCard}
+                onDragStart={startDrag}
+                onDragMove={moveDrag}
+                onDragEnd={endDrag}
+                onDragCancel={cancelDrag}
+              >
+                <Card>
+                  <View style={deliveryStyles.row}>
+                    <View
+                      accessible
+                      accessibilityRole="adjustable"
+                      accessibilityLabel={`Posi\u00e7\u00e3o da parada ${i + 1}: ${d.clientName}`}
+                      accessibilityActions={[
+                        { name: 'decrement', label: 'Mover para cima' },
+                        { name: 'increment', label: 'Mover para baixo' },
+                      ]}
+                      onAccessibilityAction={(event) => {
+                        if (busy) return;
+                        if (event.nativeEvent.actionName === 'decrement')
+                          moveCardForAccessibility(d.id, -1);
+                        if (event.nativeEvent.actionName === 'increment')
+                          moveCardForAccessibility(d.id, 1);
+                      }}
+                    >
+                      <GripVertical size={18} color={theme.muted} />
+                    </View>
+                    <Badge>{i + 1}</Badge>
+                    <View style={{ flex: 1 }}>
+                      <ThemedText bold size={18}>
+                        {d.clientName}
+                      </ThemedText>
+                      <ThemedText muted>
+                        {d.time} {'\u2022'} {d.address}
+                      </ThemedText>
+                    </View>
+                  </View>
+
                   <ThemedText muted>
-                    {d.time} • {d.address}
+                    {(d.lines || [])
+                      .map((line) => `${line.quantity} \u00d7 ${line.name}`)
+                      .join(' \u2022 ')}
                   </ThemedText>
-                </View>
-                <IconButton
-                  icon={ChevronUp}
-                  label="Mover parada para cima"
-                  disabled={i === 0 || busy}
-                  onPress={() => {
-                    const copy = [...route];
-                    [copy[i - 1], copy[i]] = [copy[i], copy[i - 1]];
-                    void order(copy);
-                  }}
-                />
-                <IconButton
-                  icon={ChevronDown}
-                  label="Mover parada para baixo"
-                  disabled={i === route.length - 1 || busy}
-                  onPress={() => {
-                    const copy = [...route];
-                    [copy[i + 1], copy[i]] = [copy[i], copy[i + 1]];
-                    void order(copy);
-                  }}
-                />
-              </View>
 
-              <ThemedText muted>
-                {(d.lines || []).map((l) => `${l.quantity} × ${l.name}`).join(' • ')}
-              </ThemedText>
-
-              <View style={deliveryStyles.wrap}>
-                <Button
-                  label="Editar parada"
-                  small
-                  secondary
-                  onPress={() => edit({ kind: 'delivery', item: d })}
-                />
-                <Button
-                  label={`Abrir ${gpsApp === 'waze' ? 'Waze' : 'Google Maps'}`}
-                  small
-                  secondary
-                  icon={Navigation}
-                  onPress={() => openInGps(d)}
-                />
-                <Button
-                  label="Concluir"
-                  small
-                  disabled={busy}
-                  onPress={() => run((a) => completeDelivery(a, d.id), 'Entrega concluída.')}
-                />
-              </View>
-            </Card>
-          ))}
+                  <View style={deliveryStyles.wrap}>
+                    <Button
+                      label="Editar parada"
+                      small
+                      secondary
+                      onPress={() => edit({ kind: 'delivery', item: d })}
+                    />
+                    <Button
+                      label={`Abrir ${gpsApp === 'waze' ? 'Waze' : 'Google Maps'}`}
+                      small
+                      secondary
+                      icon={Navigation}
+                      onPress={() => openInGps(d)}
+                    />
+                    <Button
+                      label="Concluir"
+                      small
+                      disabled={busy}
+                      onPress={() =>
+                        run(
+                          (accountDraft) => completeDelivery(accountDraft, d.id),
+                          'Entrega conclu\u00edda.',
+                        )
+                      }
+                    />
+                  </View>
+                </Card>
+              </DraggableRouteCard>
+            ))}
+          </View>
 
           {!route.length && (
             <Card>

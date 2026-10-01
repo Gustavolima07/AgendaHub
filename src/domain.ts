@@ -312,25 +312,27 @@ export function monthlyCsv(a: Account, month: string) {
       .join('\r\n')
   );
 }
-export function mapsUrls(deliveries: Delivery[]) {
+export function mapsUrls(deliveries: Delivery[], startingAddress?: string) {
   const urls: string[] = [];
-  for (let i = 0; i < deliveries.length; i += 3) {
-    const batch = deliveries.slice(i, i + 3);
-    const params = new URLSearchParams({
-      api: '1',
-      travelmode: 'driving',
-      destination: batch[batch.length - 1].address,
-    });
-    if (i > 0) params.set('origin', deliveries[i - 1].address);
+  let nextIndex = 0;
+  let origin = startingAddress?.trim() || '';
+  while (nextIndex < deliveries.length) {
+    // Maps URLs support up to three intermediate stops in mobile browsers.
+    const batch = deliveries.slice(nextIndex, nextIndex + 4);
+    const params = new URLSearchParams({ api: '1', travelmode: 'driving' });
+    if (origin) params.set('origin', origin);
+    params.set('destination', batch[batch.length - 1].address);
     if (batch.length > 1)
       params.set(
         'waypoints',
         batch
           .slice(0, -1)
-          .map((d) => d.address)
+          .map((delivery) => delivery.address)
           .join('|'),
       );
     urls.push(`https://www.google.com/maps/dir/?${params}`);
+    nextIndex += batch.length;
+    origin = batch[batch.length - 1].address;
   }
   return urls;
 }
@@ -341,7 +343,11 @@ export function wazeUrl(address: string, latitude?: number, longitude?: number) 
   else params.set('q', address);
   return `https://waze.com/ul?${params.toString()}`;
 }
-export function optimizeRoute(a: Account, deliveries: Delivery[]) {
+export function optimizeRoute(
+  a: Account,
+  deliveries: Delivery[],
+  startingPoint?: { latitude: number; longitude: number },
+) {
   if (
     deliveries.some(
       (d) =>
@@ -353,11 +359,12 @@ export function optimizeRoute(a: Account, deliveries: Delivery[]) {
       'Para ordenar por proximidade, preencha latitude e longitude de todos os clientes da rota.',
     );
   if (deliveries.length < 2) return deliveries;
-  const left = deliveries.slice(1),
-    result = [deliveries[0]];
+  const left = startingPoint ? [...deliveries] : deliveries.slice(1);
+  const result = startingPoint ? [] : [deliveries[0]];
   const rad = (n: number) => (n * Math.PI) / 180;
   while (left.length) {
-    const from = a.clients[result[result.length - 1].clientId];
+    const lastStop = result[result.length - 1];
+    const from = lastStop ? a.clients[lastStop.clientId] : startingPoint!;
     const distance = (d: Delivery) => {
       const to = a.clients[d.clientId];
       const p = rad(to.latitude! - from.latitude!),

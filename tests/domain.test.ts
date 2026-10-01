@@ -151,15 +151,28 @@ test('date and time validation rejects impossible dates and midnight crossing', 
   assert.throws(() => validateSlot('2026-09-24', '23:50', 30));
   validateSlot('2028-02-29', '23:30', 30);
 });
-test('navigation export keeps all stops through mobile-compatible segments', () => {
+test('navigation export includes every stop across mobile-compatible segments', () => {
   const list = Array.from({ length: 8 }, (_, i) => ({
     ...delivery(String(i)),
     address: `Rua ${i}`,
   }));
   const urls = mapsUrls(list);
-  assert.equal(urls.length, 3);
-  assert.equal(new URL(urls[1]).searchParams.get('origin'), 'Rua 2');
-  assert.equal(new URL(urls[2]).searchParams.get('destination'), 'Rua 7');
+  assert.equal(urls.length, 2);
+  assert.equal(new URL(urls[1]).searchParams.get('origin'), 'Rua 3');
+  assert.equal(new URL(urls[1]).searchParams.get('destination'), 'Rua 7');
+  const includedAddresses = urls.flatMap((url) => {
+    const params = new URL(url).searchParams;
+    return [
+      params.get('origin'),
+      ...(params.get('waypoints') || '').split('|'),
+      params.get('destination'),
+    ].filter(Boolean);
+  });
+  for (let index = 0; index < list.length; index++)
+    assert(includedAddresses.includes(`Rua ${index}`));
+  const startBasedUrl = new URL(mapsUrls(list.slice(0, 4), 'Ponto inicial')[0]);
+  assert.equal(startBasedUrl.searchParams.get('origin'), 'Ponto inicial');
+  assert.equal(startBasedUrl.searchParams.get('destination'), 'Rua 3');
   assert.deepEqual(mapsUrls([]), []);
 });
 test('daily route spreadsheet includes stop details, coordinates, and safe cells', () => {
@@ -209,6 +222,29 @@ test('route proximity preserves first stop and requires complete coordinates', (
   );
   delete a.clients.c.latitude;
   assert.throws(() => optimizeRoute(a, [delivery()]), /latitude/);
+});
+test('route proximity starts with the stop nearest to the selected origin', () => {
+  const account = fixture();
+  account.clients.near = {
+    ...account.clients.c,
+    id: 'near',
+    latitude: 0,
+    longitude: 0.01,
+  };
+  account.clients.far = {
+    ...account.clients.c,
+    id: 'far',
+    latitude: 0,
+    longitude: 1,
+  };
+  const stops = [
+    { ...delivery('far-stop'), clientId: 'far' },
+    { ...delivery('near-stop'), clientId: 'near' },
+  ];
+  assert.deepEqual(
+    optimizeRoute(account, stops, { latitude: 0, longitude: 0 }).map((stop) => stop.id),
+    ['near-stop', 'far-stop'],
+  );
 });
 
 test('a stale screen cannot cancel or reopen a completed delivery', () => {

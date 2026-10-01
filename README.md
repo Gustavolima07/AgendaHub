@@ -19,7 +19,7 @@ Aplicativo em **React Native + Expo + TypeScript** que reúne clientes, produtos
 | Entregas    | Programação por calendário, destinatário, endereço, produtos, conclusão e cancelamento                                                        |
 | Recorrência | Geração de pedidos mensais com prevenção de duplicações e ajuste para meses curtos                                                            |
 | Exportação  | CSV mensal com **somente Nome, Tipo e Quantidade**, agrupado por nome e tipo                                                                  |
-| Rotas       | Paradas do dia, inclusão/edição, reordenação, sugestão por proximidade, Google Maps, Waze e exportação TXT                                    |
+| Rotas       | Paradas do dia, arrastar para reordenar, ponto inicial, sugestão por proximidade, Google Maps, Waze e exportação PDF/CSV                      |
 | Aparência   | Jardim, Oceano, Lavanda, Terracota, Rosé e Noturno; criação e armazenamento de paletas; prévia antes de aplicar                               |
 | Contas      | Firebase Authentication com e-mail/senha, sessão persistente e recuperação de senha                                                           |
 | Lembretes   | Painel de alertas e notificações locais opcionais no Android/iOS                                                                              |
@@ -75,11 +75,11 @@ npm run build:web
 
 ## Rotas e navegação
 
-As paradas são as entregas pendentes da data selecionada. Use as setas para reordenar. Para retirar uma parada, reprograme a data ou cancele a entrega. Alterações de ordem não modificam os horários: revise as janelas antes de sair.
+As paradas são as entregas pendentes da data selecionada. Segure um card e arraste até a posição desejada para salvar a nova ordem. Para retirar uma parada, reprograme a data ou cancele a entrega. Alterações de ordem não modificam os horários: revise as janelas antes de sair.
 
-**Proximidade:** preencha latitude e longitude no cadastro dos clientes. A sugestão mantém a primeira parada e escolhe as próximas pela distância geográfica aproximada. Não considera trânsito, estradas, tempo real ou restrições de horário e não garante a rota ótima. Sem coordenadas, a ordem manual funciona normalmente.
+**Proximidade:** preencha latitude e longitude no cadastro dos clientes. Você pode pesquisar e selecionar um endereço inicial no Google; a sugestão começa pela parada mais próxima desse ponto. Sem ponto inicial, mantém a primeira parada atual. A distância é geográfica aproximada e não considera trânsito, estradas ou horários. Sem coordenadas dos clientes, a ordem manual funciona normalmente.
 
-**Google Maps:** as rotas são divididas em trechos de até três paradas para compatibilidade móvel; cada trecho posterior começa na última parada anterior. **Waze:** abre um destino por vez. O arquivo TXT contém a lista na ordem escolhida e os links dos trechos do Maps.
+**Google Maps:** cada link inclui até três paradas intermediárias, limite de navegadores móveis, além do destino. Rotas maiores são divididas em trechos consecutivos; abra cada trecho para percorrer todos os destinos. **Waze:** abre um destino por vez. A rota do dia pode ser exportada em PDF ou CSV, com os links de navegação.
 
 ## Notificações
 
@@ -132,7 +132,7 @@ $env:EXPO_PUBLIC_USE_EMULATORS='true'
 npx expo start --web --port 8085
 ```
 
-Conta exclusivamente local: `demo@agendahub.test`, senha `AgendaHub-local-2026`. O script conecta explicitamente aos emuladores, nunca ao banco de produção. Remova a variável antes de iniciar desenvolvimento contra o Firebase real. O uso de emuladores também exige `__DEV__`; builds de produção ignoram a variável.
+Conta exclusivamente local: `demo@agendahub.test`, senha `AgendaHub-local-2026`. O script cria 10 clientes fictícios com endereços de locais públicos reais em São Paulo, cinco produtos e 10 entregas pendentes para hoje. Executá-lo novamente substitui os dados dessa conta no emulador. O script conecta explicitamente aos emuladores, nunca ao banco de produção. Remova a variável antes de iniciar desenvolvimento contra o Firebase real. O uso de emuladores também exige `__DEV__`; builds de produção ignoram a variável.
 
 ## Publicação web
 
