@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Switch, Linking } from 'react-native';
+import { View, Switch } from 'react-native';
 import { MapPin, Trash2 } from 'lucide-react-native';
 import { useStore } from '../store';
 import {
@@ -24,7 +24,14 @@ import {
   availableSlots,
   formatAddressParts,
 } from '../domain';
-import { findAddressCoordinates, GeocodingMatch } from '../geocoding';
+import {
+  createGooglePlacesSession,
+  getGoogleAddressDetails,
+  googleGeocodeAddress,
+  GoogleAddressPrediction,
+  GoogleGeocodeResult,
+  searchGoogleAddresses,
+} from '../geocoding';
 export type Editor =
   | { kind: 'client'; item?: Client }
   | { kind: 'product'; item?: Product }
@@ -181,10 +188,15 @@ export function EditorSheet({
     [oneTimeLines, setOneTimeLines] = useState<Line[]>([]),
     [oneTimeDate, setOneTimeDate] = useState(dateKey()),
     [oneTimeTime, setOneTimeTime] = useState('10:00'),
+    [addressSearch, setAddressSearch] = useState(''),
+    [addressPredictions, setAddressPredictions] = useState<GoogleAddressPrediction[]>([]),
+    [placesLoading, setPlacesLoading] = useState(false),
+    [placesError, setPlacesError] = useState(''),
     [geocoding, setGeocoding] = useState(false),
     [geocodeError, setGeocodeError] = useState(''),
-    [geocodeMatches, setGeocodeMatches] = useState<GeocodingMatch[]>([]),
+    [geocodeMatches, setGeocodeMatches] = useState<GoogleGeocodeResult[]>([]),
     [geocodeSearched, setGeocodeSearched] = useState(false);
+  const [placesSession, setPlacesSession] = useState(createGooglePlacesSession);
   const update = (key: string, value: any) => setForm((f: any) => ({ ...f, [key]: value }));
   const field = (key: string, label: string, numeric = false, multiline = false) => (
     <Field
@@ -209,6 +221,51 @@ export function EditorSheet({
     />
   );
   const clients = Object.values(account.clients).filter((c) => !c.archived);
+  async function searchAddresses() {
+    setPlacesError('');
+    setAddressPredictions([]);
+    setPlacesLoading(true);
+    try {
+      const predictions = await searchGoogleAddresses(addressSearch, placesSession);
+      setAddressPredictions(predictions);
+      if (!predictions.length) setPlacesError('O Google não encontrou sugestões para esse texto.');
+    } catch (searchError) {
+      setPlacesError((searchError as Error).message);
+    } finally {
+      setPlacesLoading(false);
+    }
+  }
+  async function selectAddress(prediction: GoogleAddressPrediction) {
+    setPlacesError('');
+    setPlacesLoading(true);
+    try {
+      const details = await getGoogleAddressDetails(prediction, placesSession);
+      setForm((current: any) => ({
+        ...current,
+        address: details.formattedAddress,
+        addressParts: details.parts,
+        latitude: details.latitude == null ? current.latitude : String(details.latitude),
+        longitude: details.longitude == null ? current.longitude : String(details.longitude),
+      }));
+      setAddressSearch(details.formattedAddress);
+      setAddressPredictions([]);
+      setPlacesSession(createGooglePlacesSession());
+      if (details.latitude != null && details.longitude != null) {
+        setGeocodeMatches([
+          {
+            latitude: details.latitude,
+            longitude: details.longitude,
+            displayName: details.formattedAddress,
+            approximate: false,
+          },
+        ]);
+      }
+    } catch (selectionError) {
+      setPlacesError((selectionError as Error).message);
+    } finally {
+      setPlacesLoading(false);
+    }
+  }
   async function lookupCoordinates() {
     setGeocodeError('');
     setGeocodeMatches([]);
@@ -218,7 +275,14 @@ export function EditorSheet({
       const parts = form.addressParts as AddressParts;
       if (!parts.street.trim() || !parts.city.trim() || !parts.state.trim())
         throw new Error('Preencha rua, cidade e estado para buscar o ponto.');
-      setGeocodeMatches(await findAddressCoordinates(formatAddressParts(parts)));
+      const match = await googleGeocodeAddress(formatAddressParts(parts));
+      if (!match)
+        throw new Error(
+          'O Google não encontrou esse endereço. Confira os campos e tente novamente.',
+        );
+      setGeocodeMatches([match]);
+      update('latitude', String(match.latitude));
+      update('longitude', String(match.longitude));
     } catch (lookupError) {
       setGeocodeError((lookupError as Error).message);
     } finally {
@@ -297,7 +361,7 @@ export function EditorSheet({
               throw Error('Informe quantidades inteiras maiores que zero.');
           }
           a.clients[c.id] = c;
-          if (oneTimeRoute && !original) {
+          if (oneTimeRoute) {
             if (!c.address || !oneTimeLines.length)
               throw Error('Para criar a rota única, preencha o endereço e selecione os produtos.');
             saveDelivery(a, {
@@ -310,7 +374,9 @@ export function EditorSheet({
               duration: 30,
               lines: oneTimeLines,
               status: 'pending',
-              notes: 'Rota única criada junto com o cadastro do cliente.',
+              notes: original
+                ? 'Entrega única adicionada ao editar o cliente.'
+                : 'Entrega única criada junto com o cadastro do cliente.',
               reminder: 30,
               order: 0,
             });
@@ -375,6 +441,44 @@ export function EditorSheet({
               Endereço atual: {form.address}. Preencha os campos abaixo para atualizá-lo.
             </ThemedText>
           )}
+          <Field
+            label="Buscar endereço no Google Maps"
+            value={addressSearch}
+            onChange={(value) => {
+              setAddressSearch(value);
+              setPlacesError('');
+            }}
+            placeholder="Digite rua, número, bairro e cidade"
+          />
+          <Button
+            label={placesLoading ? 'Pesquisando endereço…' : 'Pesquisar endereços no Google'}
+            icon={MapPin}
+            secondary
+            disabled={placesLoading || addressSearch.trim().length < 4}
+            onPress={searchAddresses}
+          />
+          {addressPredictions.length > 0 && (
+            <>
+              <ThemedText size={11} muted>
+                Powered by Google
+              </ThemedText>
+              {addressPredictions.map((prediction) => (
+                <Button
+                  key={prediction.placeId}
+                  small
+                  secondary
+                  label={prediction.description}
+                  disabled={placesLoading}
+                  onPress={() => void selectAddress(prediction)}
+                />
+              ))}
+            </>
+          )}
+          {!!placesError && <ThemedText color="#B33D3D">{placesError}</ThemedText>}
+          <ThemedText size={12} muted>
+            Selecione uma sugestão para preencher rua, número, bairro, CEP, cidade, estado e
+            coordenadas automaticamente.
+          </ThemedText>
           <View style={[layoutStyles.row, { flexWrap: 'wrap' }]}>
             {addressField('street', 'Rua / avenida')}
             {addressField('number', 'Número')}
@@ -387,35 +491,27 @@ export function EditorSheet({
             {addressField('country', 'País')}
           </View>
           <ThemedText size={12} muted>
-            A busca envia somente o endereço ao Nominatim/OpenStreetMap. Não inclua nome, telefone
-            ou outras informações pessoais. A consulta é manual e segue o limite de uma requisição
-            por segundo.
+            Converter o endereço preenchido em coordenadas:
           </ThemedText>
           <Button
-            label={geocoding ? 'Buscando endereço…' : 'Buscar coordenadas no OpenStreetMap'}
+            label={
+              geocoding ? 'Convertendo endereço…' : 'Converter endereço em latitude e longitude'
+            }
             icon={MapPin}
             secondary
             disabled={geocoding}
             onPress={lookupCoordinates}
           />
-          <Button
-            label="Ler política de uso do Nominatim"
-            small
-            secondary
-            onPress={() =>
-              void Linking.openURL('https://operations.osmfoundation.org/policies/nominatim/')
-            }
-          />
           {!!geocodeError && <ThemedText color="#B33D3D">{geocodeError}</ThemedText>}
           {geocodeSearched && !geocoding && !geocodeError && !geocodeMatches.length && (
             <ThemedText muted>
-              Nenhum endereço encontrado. Complete mais campos ou insira as coordenadas manualmente.
+              O Google não encontrou esse endereço. Confira os campos ou informe as coordenadas
+              manualmente.
             </ThemedText>
           )}
           {geocodeMatches.some((match) => match.approximate) && (
             <ThemedText size={12} color="#8A641F">
-              Não encontramos o número exato. As sugestões abaixo representam a rua sem o número;
-              confirme o ponto no GPS antes de usar a rota.
+              O resultado pode ser aproximado. Confira o endereço e o ponto antes de usar a rota.
             </ThemedText>
           )}
           {geocodeMatches.map((match, index) => (
@@ -423,7 +519,7 @@ export function EditorSheet({
               key={`${match.latitude}-${match.longitude}`}
               small
               secondary
-              label={`${index + 1}. ${match.approximate ? 'Aproximado · ' : ''}${match.displayName.slice(0, 90)} · ${match.latitude}, ${match.longitude}`}
+              label={`${match.approximate ? 'Aproximado · ' : 'Google Maps · '}${match.displayName.slice(0, 90)} · ${match.latitude}, ${match.longitude}`}
               onPress={() => {
                 update('latitude', String(match.latitude));
                 update('longitude', String(match.longitude));
@@ -460,31 +556,29 @@ export function EditorSheet({
               <LineEditor lines={form.monthly || []} onChange={(l) => update('monthly', l)} />
             </>
           )}
-          {!original && (
-            <>
-              <View style={layoutStyles.between}>
-                <ThemedText bold>Criar uma rota para este cliente agora</ThemedText>
-                <Switch
-                  accessibilityLabel="Criar uma única entrega para este cliente"
-                  value={oneTimeRoute}
-                  onValueChange={setOneTimeRoute}
-                  trackColor={{ true: t.primary }}
-                />
-              </View>
-              <ThemedText size={12} muted>
-                Esta atribuição cria uma única entrega na data escolhida. Ela não é mensal nem se
-                repete automaticamente.
-              </ThemedText>
-              {oneTimeRoute && (
-                <>
-                  <ThemedText bold>Data da entrega única · {oneTimeDate}</ThemedText>
-                  <Calendar value={oneTimeDate} onChange={setOneTimeDate} />
-                  <Field label="Horário da entrega" value={oneTimeTime} onChange={setOneTimeTime} />
-                  <LineEditor lines={oneTimeLines} onChange={setOneTimeLines} />
-                </>
-              )}
-            </>
-          )}
+          <>
+            <View style={layoutStyles.between}>
+              <ThemedText bold>Adicionar uma entrega única para este cliente</ThemedText>
+              <Switch
+                accessibilityLabel="Criar uma única entrega para este cliente"
+                value={oneTimeRoute}
+                onValueChange={setOneTimeRoute}
+                trackColor={{ true: t.primary }}
+              />
+            </View>
+            <ThemedText size={12} muted>
+              Disponível ao cadastrar ou editar. Cria uma entrega separada na data escolhida; não é
+              mensal e não se repete automaticamente.
+            </ThemedText>
+            {oneTimeRoute && (
+              <>
+                <ThemedText bold>Data da entrega única · {oneTimeDate}</ThemedText>
+                <Calendar value={oneTimeDate} onChange={setOneTimeDate} />
+                <Field label="Horário da entrega" value={oneTimeTime} onChange={setOneTimeTime} />
+                <LineEditor lines={oneTimeLines} onChange={setOneTimeLines} />
+              </>
+            )}
+          </>
         </>
       )}
       {(editor.kind === 'appointment' || editor.kind === 'delivery') && (

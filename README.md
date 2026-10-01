@@ -136,6 +136,12 @@ Conta exclusivamente local: `demo@agendahub.test`, senha `AgendaHub-local-2026`.
 
 ## Publicação web
 
+### Google Places e Geocoding
+
+O cadastro de clientes usa Places Autocomplete para sugerir endereços e Geocoding para converter o endereço em coordenadas. Ative **Maps JavaScript API**, **Places API (New)** e **Geocoding API** no mesmo projeto do Google Cloud, com faturamento configurado. Defina `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY` em `.env.local` antes de iniciar o Expo ou gerar o site. O arquivo `.env.example` mostra o formato; não coloque a chave real no Git.
+
+Como a chave usada pela Maps JavaScript API aparece no navegador, restrinja-a por HTTP referrer aos domínios de desenvolvimento e produção e limite as APIs permitidas às três acima. As chamadas nativas exigem chaves Android e iOS separadas, configuradas em `EXPO_PUBLIC_GOOGLE_MAPS_ANDROID_API_KEY` e `EXPO_PUBLIC_GOOGLE_MAPS_IOS_API_KEY`, com restrições para o aplicativo; no Android, informe também o SHA-1 do certificado em `EXPO_PUBLIC_GOOGLE_MAPS_ANDROID_CERT_SHA1`. Não reutilize a chave web. Consulte as [práticas de segurança do Google Maps Platform](https://developers.google.com/maps/api-security-best-practices).
+
 ```bash
 firebase login
 npm run deploy
