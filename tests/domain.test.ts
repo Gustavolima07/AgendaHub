@@ -16,7 +16,7 @@ import {
   stockShortages,
 } from '../src/domain';
 import { Delivery } from '../src/types';
-import { routeCsv } from '../src/routeExport';
+import { routeCsv, routePdfHtml } from '../src/routeExport';
 function fixture() {
   const a = emptyAccount();
   a.products.p = {
@@ -174,6 +174,32 @@ test('daily route spreadsheet includes stop details, coordinates, and safe cells
   assert(csv.includes('Pão artesanal'));
   assert(csv.includes('-23.55;-46.63'));
   assert(csv.includes('https://www.google.com/maps/dir/'));
+});
+test('route PDF contains only ordered stops and complete Google Maps trip links', () => {
+  const account = fixture();
+  const firstStop = {
+    ...delivery('first'),
+    clientId: 'c',
+    clientName: 'Marina',
+    address: 'Praça da Sé, São Paulo, SP',
+    time: '10:00',
+  };
+  const secondStop = {
+    ...delivery('second'),
+    clientId: 'c',
+    clientName: 'Ateliê Aurora',
+    address: 'Avenida Paulista, São Paulo, SP',
+    time: '11:00',
+  };
+  const html = routePdfHtml(account, [firstStop, secondStop], '2026-10-01', 'maps');
+  assert(html.includes('1. Marina'));
+  assert(html.includes('2. Ateli'));
+  assert(html.includes('10:00'));
+  assert(html.includes('11:00'));
+  assert(html.includes('Google Maps (trechos na ordem)'));
+  assert(html.includes('waypoints=Pra%C3%A7a+da+S%C3%A9%2C+S%C3%A3o+Paulo%2C+SP'));
+  assert(html.includes('destination=Avenida+Paulista'));
+  assert(!html.includes('<table'));
 });
 test('route proximity preserves first stop and requires complete coordinates', () => {
   const a = fixture();

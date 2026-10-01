@@ -46,31 +46,29 @@ export function routeCsv(account: Account, route: Delivery[], gpsApp: GpsApp) {
       .join(';');
   });
   return (
-    '\uFEFFOrdem;Horário;Cliente;Endereço;Produtos;Latitude;Longitude;Link GPS\r\n' +
+    '\uFEFFOrdem;Hor\u00e1rio;Cliente;Endere\u00e7o;Produtos;Latitude;Longitude;Link GPS\r\n' +
     rows.join('\r\n')
   );
 }
 
 export function routePdfHtml(account: Account, route: Delivery[], date: string, gpsApp: GpsApp) {
-  const rows = route
-    .map((delivery, index) => {
-      const client = account.clients[delivery.clientId];
-      const products = (delivery.lines || [])
-        .map((line) => `${line.quantity} × ${line.name} (${line.type})`)
-        .join('<br>');
-      const gpsUrl = routeGpsUrl(account, delivery, gpsApp);
-      const coordinates =
-        client?.latitude != null && client.longitude != null
-          ? `${client.latitude}, ${client.longitude}`
-          : 'Não informadas';
-      return `<tr>
-        <td class="order">${index + 1}</td>
-        <td>${escapeHtml(delivery.time)}</td>
-        <td><strong>${escapeHtml(delivery.clientName)}</strong><br>${escapeHtml(delivery.address)}<br><small>GPS: ${escapeHtml(coordinates)}</small></td>
-        <td>${products}</td>
-        <td><a href="${escapeHtml(gpsUrl)}">Abrir ${gpsApp === 'waze' ? 'Waze' : 'Google Maps'}</a></td>
-      </tr>`;
-    })
+  const stops = route
+    .map(
+      (delivery, index) => `<p class="stop">
+        <strong>${index + 1}. ${escapeHtml(delivery.clientName)} \u2022 ${escapeHtml(delivery.time)}</strong><br>
+        ${escapeHtml(delivery.address)}
+      </p>`,
+    )
+    .join('');
+  const navigationUrls =
+    gpsApp === 'maps'
+      ? mapsUrls(route)
+      : route.map((delivery) => routeGpsUrl(account, delivery, gpsApp));
+  const navigationLinks = navigationUrls
+    .map(
+      (url, index) =>
+        `<p><a href="${escapeHtml(url)}">${gpsApp === 'waze' ? `Abrir parada ${index + 1} no Waze` : navigationUrls.length === 1 ? 'Abrir viagem no Google Maps' : `Abrir trecho ${index + 1} no Google Maps`}</a><br><small class="url">${escapeHtml(url)}</small></p>`,
+    )
     .join('');
 
   return `<!doctype html>
@@ -78,30 +76,24 @@ export function routePdfHtml(account: Account, route: Delivery[], date: string, 
       <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
-        <title>AgendaHub · Rota ${escapeHtml(date)}</title>
+        <title>AgendaHub - Rota ${escapeHtml(date)}</title>
         <style>
           @page { size: A4; margin: 16mm; }
           body { color: #19251f; font: 12px Arial, sans-serif; }
-          h1 { margin: 0 0 4px; font-size: 22px; }
-          p { color: #526259; margin: 0 0 18px; }
-          table { border-collapse: collapse; width: 100%; }
-          th { background: #22634c; color: white; text-align: left; }
-          th, td { border: 1px solid #d8e1dc; padding: 9px 8px; vertical-align: top; }
-          tr { break-inside: avoid; }
-          .order { color: #22634c; font-size: 16px; font-weight: bold; text-align: center; }
-          small { color: #65756c; }
+          h1 { margin: 0 0 4px; font-size: 20px; }
+          h2 { margin: 20px 0 8px; font-size: 14px; }
+          p { margin: 0 0 12px; }
+          .stop { break-inside: avoid; line-height: 1.5; }
+          small { color: #526259; }
+          .url { overflow-wrap: anywhere; }
           a { color: #22634c; }
-          footer { color: #65756c; font-size: 10px; margin-top: 18px; }
         </style>
       </head>
       <body>
-        <h1>AgendaHub · Rota do dia</h1>
-        <p>${escapeHtml(date.split('-').reverse().join('/'))} · ${route.length} parada(s) · GPS: ${gpsApp === 'waze' ? 'Waze' : 'Google Maps'}</p>
-        <table>
-          <thead><tr><th>#</th><th>Horário</th><th>Cliente e endereço</th><th>Produtos</th><th>Navegação</th></tr></thead>
-          <tbody>${rows || '<tr><td colspan="5">Nenhuma entrega pendente para esta data.</td></tr>'}</tbody>
-        </table>
-        <footer>Rota gerada pelo AgendaHub. Confirme endereços, coordenadas e sequência antes de iniciar a entrega.</footer>
+        <h1>AgendaHub \u2022 Rota ${escapeHtml(date)}</h1>
+        ${stops || '<p>Nenhuma entrega pendente para esta data.</p>'}
+        <h2>${gpsApp === 'waze' ? 'Waze (links por parada)' : 'Google Maps (trechos na ordem)'}:</h2>
+        ${navigationLinks || '<p>Nenhum link dispon\u00edvel.</p>'}
       </body>
     </html>`;
 }

@@ -21,8 +21,24 @@ export async function exportText(name: string, text: string, mime = 'text/csv') 
 
 export async function exportPdf(name: string, html: string) {
   const Print = await import('expo-print');
+  if (Platform.OS === 'web') {
+    const response = await fetch('data:text/html;charset=utf-8,' + encodeURIComponent(html));
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const openedWindow = window.open(url, '_blank');
+    if (!openedWindow) {
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = name.replace(/\.pdf$/i, '.html');
+      link.click();
+    } else {
+      openedWindow.addEventListener('load', () => openedWindow.print(), { once: true });
+    }
+    window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    return;
+  }
+
   const { uri } = await Print.printToFileAsync({ html });
-  if (Platform.OS === 'web') return;
 
   const Sharing = await import('expo-sharing');
   if (await Sharing.isAvailableAsync())
