@@ -157,7 +157,8 @@ export function Deliveries({ edit, notify }: PageProps) {
   const [scrollAdjustment, setScrollAdjustment] = useState(0);
   const routeRef = useRef(route);
   const orderRef = useRef(order);
-  const cardLayouts = useRef<Record<string, { y: number; height: number }>>({});
+  const cardHeights = useRef<Record<string, number>>({});
+  const dropTargetIndexRef = useRef<number | null>(null);
   const dragging = useRef<{ id: string | null; translationY: number }>({
     id: null,
     translationY: 0,
@@ -170,26 +171,43 @@ export function Deliveries({ edit, notify }: PageProps) {
     orderRef.current = order;
   }, [order, route]);
 
-  const measureCard = useCallback((id: string, y: number, height: number) => {
-    cardLayouts.current[id] = { y, height };
+  const measureCard = useCallback((id: string, height: number) => {
+    cardHeights.current[id] = height;
+  }, []);
+  const updateDropTarget = useCallback((index: number | null) => {
+    if (dropTargetIndexRef.current === index) return;
+    dropTargetIndexRef.current = index;
+    setDropTargetIndex(index);
   }, []);
   const targetIndexAt = useCallback((id: string, translationY: number) => {
     const currentRoute = routeRef.current;
-    const source = cardLayouts.current[id];
-    if (!source) return currentRoute.findIndex((delivery) => delivery.id === id);
-    const draggedCenter = source.y + source.height / 2 + translationY;
-    let nearestIndex = 0;
-    let nearestDistance = Number.POSITIVE_INFINITY;
+    const from = currentRoute.findIndex((delivery) => delivery.id === id);
+    if (from < 0) return -1;
+    // onLayout positions belong to the previous render after a reorder. Rebuild
+    // positions from the current order and the measured heights instead.
+    const positions: number[] = [];
+    let top = 0;
     currentRoute.forEach((delivery, index) => {
-      const layout = cardLayouts.current[delivery.id];
-      if (!layout) return;
-      const distance = Math.abs(draggedCenter - layout.y - layout.height / 2);
-      if (distance < nearestDistance) {
-        nearestDistance = distance;
-        nearestIndex = index;
-      }
+      positions[index] = top;
+      top += (cardHeights.current[delivery.id] || 170) + 12;
     });
-    return nearestIndex;
+    const draggedCenter =
+      positions[from] + (cardHeights.current[id] || 170) / 2 + translationY;
+    let target = from;
+    if (translationY > 0) {
+      for (let index = from + 1; index < currentRoute.length; index++) {
+        const height = cardHeights.current[currentRoute[index].id] || 170;
+        if (draggedCenter >= positions[index] + height * 0.25) target = index;
+        else break;
+      }
+    } else if (translationY < 0) {
+      for (let index = from - 1; index >= 0; index--) {
+        const height = cardHeights.current[currentRoute[index].id] || 170;
+        if (draggedCenter <= positions[index] + height * 0.75) target = index;
+        else break;
+      }
+    }
+    return target;
   }, []);
   const stopAutoScroll = useCallback(() => {
     if (autoScrollTimer.current) clearInterval(autoScrollTimer.current);
@@ -202,8 +220,8 @@ export function Deliveries({ edit, notify }: PageProps) {
     scrollAdjustmentRef.current = 0;
     setScrollAdjustment(0);
     setDraggingId(id);
-    setDropTargetIndex(routeRef.current.findIndex((delivery) => delivery.id === id));
-  }, []);
+    updateDropTarget(routeRef.current.findIndex((delivery) => delivery.id === id));
+  }, [updateDropTarget]);
   const moveDrag = useCallback(
     (id: string, translationY: number, absoluteY: number) => {
       dragging.current = { id, translationY };
@@ -221,24 +239,24 @@ export function Deliveries({ edit, notify }: PageProps) {
         autoScrollDirection.current = direction;
         if (direction && pageScroll)
           autoScrollTimer.current = setInterval(() => {
-            const moved = pageScroll.scrollBy(direction * 10);
+            const moved = pageScroll.scrollBy(direction * 16);
             if (!moved) return;
             scrollAdjustmentRef.current += moved;
             setScrollAdjustment(scrollAdjustmentRef.current);
             const activeId = dragging.current.id;
             if (activeId)
-              setDropTargetIndex(
+              updateDropTarget(
                 targetIndexAt(
                   activeId,
                   dragging.current.translationY + scrollAdjustmentRef.current,
                 ),
               );
-          }, 16);
+          }, 32);
       }
       const nextIndex = targetIndexAt(id, translationY + scrollAdjustmentRef.current);
-      setDropTargetIndex((currentIndex) => (currentIndex === nextIndex ? currentIndex : nextIndex));
+      updateDropTarget(nextIndex);
     },
-    [pageScroll, stopAutoScroll, targetIndexAt],
+    [pageScroll, stopAutoScroll, targetIndexAt, updateDropTarget],
   );
   const endDrag = useCallback(
     (id: string, translationY: number) => {
@@ -249,6 +267,7 @@ export function Deliveries({ edit, notify }: PageProps) {
       if (from < 0 || to < 0 || from === to) return;
       const reordered = [...currentRoute];
       reordered.splice(to, 0, ...reordered.splice(from, 1));
+      routeRef.current = reordered;
       void orderRef.current(reordered);
     },
     [stopAutoScroll, targetIndexAt],
@@ -259,8 +278,8 @@ export function Deliveries({ edit, notify }: PageProps) {
     scrollAdjustmentRef.current = 0;
     setScrollAdjustment(0);
     setDraggingId(null);
-    setDropTargetIndex(null);
-  }, [stopAutoScroll]);
+    updateDropTarget(null);
+  }, [stopAutoScroll, updateDropTarget]);
   const moveCardForAccessibility = useCallback((id: string, direction: -1 | 1) => {
     const currentRoute = routeRef.current;
     const index = currentRoute.findIndex((delivery) => delivery.id === id);
@@ -268,6 +287,7 @@ export function Deliveries({ edit, notify }: PageProps) {
     if (index < 0 || target < 0 || target >= currentRoute.length) return;
     const reordered = [...currentRoute];
     reordered.splice(target, 0, ...reordered.splice(index, 1));
+    routeRef.current = reordered;
     void orderRef.current(reordered);
   }, []);
 

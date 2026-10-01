@@ -134,6 +134,15 @@ npx expo start --web --port 8085
 
 Conta exclusivamente local: `demo@agendahub.test`, senha `AgendaHub-local-2026`. O script cria 10 clientes fictícios com endereços de locais públicos reais em São Paulo, cinco produtos e 10 entregas pendentes para hoje. Executá-lo novamente substitui os dados dessa conta no emulador. O script conecta explicitamente aos emuladores, nunca ao banco de produção. Remova a variável antes de iniciar desenvolvimento contra o Firebase real. O uso de emuladores também exige `__DEV__`; builds de produção ignoram a variável.
 
+Para testar com um export antigo do Realtime Database, mantenha os emuladores de Auth e Database abertos e execute em outro terminal:
+
+```powershell
+npx tsx scripts/import-export-emulator.ts "../seu_data_base" --dry-run
+npx tsx scripts/import-export-emulator.ts "../seu_data_base"
+```
+
+A conta local criada é `importado@agendahub.test`, senha `AgendaHub-importacao-2026`. O script combina os clientes, produtos, compromissos e entregas de todas as contas do export, ajusta as referências entre eles e mantém a ordem das rotas de cada dia. O arquivo JSON permanece no caminho original e não é incluído no projeto. Uma nova execução não substitui os dados da conta importada, a menos que você acrescente `--replace`. Use essa importação somente no emulador local: o export pode conter dados pessoais reais.
+
 ## Publicação web
 
 ### Google Places e Geocoding

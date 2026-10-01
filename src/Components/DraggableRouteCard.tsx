@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import { LayoutChangeEvent, Platform, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
@@ -16,7 +16,7 @@ type Props = {
   isDropTarget: boolean;
   highlightColor: string;
   scrollAdjustment: number;
-  onMeasure: (id: string, y: number, height: number) => void;
+  onMeasure: (id: string, height: number) => void;
   onDragStart: (id: string) => void;
   onDragMove: (id: string, translationY: number, absoluteY: number) => void;
   onDragEnd: (id: string, translationY: number) => void;
@@ -76,35 +76,51 @@ export function DraggableRouteCard({
   const active = useSharedValue(false);
   const scale = useSharedValue(1);
   const scrollOffset = useSharedValue(0);
+  const webViewRef = useRef<View>(null);
+  const webTranslation = useRef(0);
+  const webActive = useRef(false);
+  const webOffset = useRef(0);
+  const applyWebTransform = useCallback((offset: number) => {
+    const element = webViewRef.current as unknown as HTMLElement | null;
+    if (!element) return;
+    element.style.transform = `translateY(${webTranslation.current + offset}px) scale(${webActive.current ? 1.025 : 1})`;
+    element.style.zIndex = webActive.current ? '20' : '0';
+  }, []);
   useEffect(() => {
     updateSharedOffset(scrollOffset, scrollAdjustment);
-  }, [scrollAdjustment, scrollOffset]);
-  const [webTranslationY, setWebTranslationY] = useState(0);
-  const [webActive, setWebActive] = useState(false);
+    webOffset.current = scrollAdjustment;
+    if (Platform.OS === 'web') applyWebTransform(scrollAdjustment);
+  }, [applyWebTransform, scrollAdjustment, scrollOffset]);
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: translationY.value + scrollOffset.value }, { scale: scale.value }],
     zIndex: active.value ? 20 : 0,
     elevation: active.value ? 10 : 0,
   }));
+  const handleWebStart = useCallback(() => {
+    webActive.current = true;
+    applyWebTransform(webOffset.current);
+    onDragStart(id);
+  }, [applyWebTransform, id, onDragStart]);
+  const handleWebUpdate = useCallback((event: { translationY: number; absoluteY: number }) => {
+    webTranslation.current = event.translationY;
+    applyWebTransform(webOffset.current);
+    onDragMove(id, event.translationY, event.absoluteY);
+  }, [applyWebTransform, id, onDragMove]);
+  const handleWebFinalize = useCallback(() => {
+    webActive.current = false;
+    webTranslation.current = 0;
+    applyWebTransform(0);
+    onDragCancel();
+  }, [applyWebTransform, onDragCancel]);
   const gesture = useMemo(() => {
     const pan = Gesture.Pan().enabled(!disabled).activateAfterLongPress(350);
     if (Platform.OS === 'web')
       return pan
         .runOnJS(true)
-        .onStart(() => {
-          setWebActive(true);
-          onDragStart(id);
-        })
-        .onUpdate((event) => {
-          setWebTranslationY(event.translationY);
-          onDragMove(id, event.translationY, event.absoluteY);
-        })
+        .onStart(handleWebStart)
+        .onUpdate(handleWebUpdate)
         .onEnd((event) => onDragEnd(id, event.translationY))
-        .onFinalize(() => {
-          setWebActive(false);
-          setWebTranslationY(0);
-          onDragCancel();
-        });
+        .onFinalize(handleWebFinalize);
     return nativeDragGesture(
       pan,
       id,
@@ -116,11 +132,10 @@ export function DraggableRouteCard({
       onDragEnd,
       onDragCancel,
     );
-  }, [active, disabled, id, onDragCancel, onDragEnd, onDragMove, onDragStart, scale, translationY]);
+  }, [active, disabled, handleWebFinalize, handleWebStart, handleWebUpdate, id, onDragCancel, onDragEnd, onDragMove, onDragStart, scale, translationY]);
 
   const handleLayout = (event: LayoutChangeEvent) => {
-    const { y, height } = event.nativeEvent.layout;
-    onMeasure(id, y, height);
+    onMeasure(id, event.nativeEvent.layout.height);
   };
 
   const borderStyle = {
@@ -133,18 +148,10 @@ export function DraggableRouteCard({
     return (
       <GestureDetector gesture={gesture}>
         <View
+          ref={webViewRef}
           collapsable={false}
           onLayout={handleLayout}
-          style={[
-            borderStyle,
-            {
-              transform: [
-                { translateY: webTranslationY + scrollAdjustment },
-                { scale: webActive ? 1.025 : 1 },
-              ],
-              zIndex: webActive ? 20 : 0,
-            },
-          ]}
+          style={borderStyle}
         >
           {children}
         </View>
