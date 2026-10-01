@@ -16,6 +16,7 @@ import {
   stockShortages,
 } from '../src/domain';
 import { Delivery } from '../src/types';
+import { routeCsv } from '../src/routeExport';
 function fixture() {
   const a = emptyAccount();
   a.products.p = {
@@ -160,6 +161,19 @@ test('navigation export keeps all stops through mobile-compatible segments', () 
   assert.equal(new URL(urls[1]).searchParams.get('origin'), 'Rua 2');
   assert.equal(new URL(urls[2]).searchParams.get('destination'), 'Rua 7');
   assert.deepEqual(mapsUrls([]), []);
+});
+test('daily route spreadsheet includes stop details, coordinates, and safe cells', () => {
+  const account = fixture();
+  account.clients.c.name = '=SUM(1)';
+  const route = [{ ...delivery(), clientName: account.clients.c.name }];
+  const csv = routeCsv(account, route, 'maps');
+  assert(
+    csv.startsWith('\uFEFFOrdem;Horário;Cliente;Endereço;Produtos;Latitude;Longitude;Link GPS'),
+  );
+  assert(csv.includes("'=SUM(1)"));
+  assert(csv.includes('Pão artesanal'));
+  assert(csv.includes('-23.55;-46.63'));
+  assert(csv.includes('https://www.google.com/maps/dir/'));
 });
 test('route proximity preserves first stop and requires complete coordinates', () => {
   const a = fixture();

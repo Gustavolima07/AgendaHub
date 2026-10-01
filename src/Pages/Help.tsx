@@ -163,9 +163,9 @@ const helpGuides: HelpGuide[] = [
     points: [
       '1 · Em Entregas, escolha uma data no calendário e toque em Nova entrega para selecionar cliente, horário e produtos.',
       '2 · A aba Rota do dia reúne as pendentes. Use as setas para mudar a ordem, ou ordene por proximidade (estimativa por coordenadas, sem considerar trânsito).',
-      '3 · Em Personalizar, escolha Maps ou Waze como navegador preferido. A rota pode ser reordenada e exportada; os produtos mensais exportados incluem nome, tipo e quantidade.',
+      '3 · Em Personalizar, escolha Maps ou Waze como navegador preferido. Exporte a rota diária como PDF para salvar/compartilhar ou CSV para abrir em uma planilha. A exportação mensal de produtos contém apenas nome, tipo e quantidade.',
     ],
-    visualLabels: ['Calendário + pedidos', 'Paradas reordenáveis', 'Exportação / navegação'],
+    visualLabels: ['Calendário + pedidos', 'Paradas reordenáveis', 'PDF · CSV · GPS'],
   },
   {
     id: 'settings',

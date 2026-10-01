@@ -188,7 +188,7 @@ export function EditorSheet({
     [oneTimeLines, setOneTimeLines] = useState<Line[]>([]),
     [oneTimeDate, setOneTimeDate] = useState(dateKey()),
     [oneTimeTime, setOneTimeTime] = useState('10:00'),
-    [addressSearch, setAddressSearch] = useState(''),
+    [addressSearch, setAddressSearch] = useState(() => String(form.address || '').trim()),
     [addressPredictions, setAddressPredictions] = useState<GoogleAddressPrediction[]>([]),
     [placesLoading, setPlacesLoading] = useState(false),
     [placesError, setPlacesError] = useState(''),
@@ -527,14 +527,14 @@ export function EditorSheet({
               }}
             />
           ))}
-          {field('notes', 'Observações', false, true)}
-          <View style={layoutStyles.row}>
+          <View style={[layoutStyles.row, { flexWrap: 'wrap', alignItems: 'flex-start' }]}>
             {field('latitude', 'Latitude (opcional)', true)}
             {field('longitude', 'Longitude (opcional)', true)}
           </View>
           <ThemedText muted size={12}>
             Coordenadas são opcionais e permitem sugerir uma ordem de paradas por proximidade.
           </ThemedText>
+          {field('notes', 'Observações', false, true)}
           <View style={layoutStyles.between}>
             <ThemedText bold>Produtos mensais fixos</ThemedText>
             <Switch

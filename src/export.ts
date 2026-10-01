@@ -18,3 +18,18 @@ export async function exportText(name: string, text: string, mime = 'text/csv') 
     await Sharing.shareAsync(file.uri, { mimeType: mime, dialogTitle: 'Exportar AgendaHub' });
   else await Share.share({ message: text });
 }
+
+export async function exportPdf(name: string, html: string) {
+  const Print = await import('expo-print');
+  const { uri } = await Print.printToFileAsync({ html });
+  if (Platform.OS === 'web') return;
+
+  const Sharing = await import('expo-sharing');
+  if (await Sharing.isAvailableAsync())
+    await Sharing.shareAsync(uri, {
+      mimeType: 'application/pdf',
+      dialogTitle: `Exportar ${name}`,
+      UTI: 'com.adobe.pdf',
+    });
+  else await Share.share({ message: `${name}: ${uri}`, url: uri });
+}

@@ -25,7 +25,8 @@ import {
   dateLabel,
   money,
 } from '../domain';
-import { exportText } from '../export';
+import { exportPdf, exportText } from '../export';
+import { routeCsv, routePdfHtml } from '../routeExport';
 import { PageProps } from './types';
 type DeliveryStatus = Delivery['status'];
 
@@ -93,29 +94,21 @@ export function Deliveries({ edit, notify }: PageProps) {
     );
   };
 
-  // Exportação de TXT da Rota
-  async function exportRoute() {
+  async function exportRouteSpreadsheet() {
     try {
       if (!route.length) throw new Error('Adicione entregas pendentes para montar a rota.');
+      await exportText(`rota-${date}.csv`, routeCsv(account, route, gpsApp));
+      notify('Planilha da rota exportada em CSV.');
+    } catch (e) {
+      notify((e as Error).message);
+    }
+  }
 
-      await exportText(
-        `rota-${date}.txt`,
-        [
-          'AgendaHub • Rota ' + date,
-          ...route.map((d, i) => `${i + 1}. ${d.clientName} • ${d.time}\n${d.address}`),
-          `${gpsApp === 'waze' ? 'Waze (um destino por parada)' : 'Google Maps (trechos na ordem)'}:`,
-          ...(gpsApp === 'waze'
-            ? route.map((delivery) =>
-                wazeUrl(
-                  delivery.address,
-                  account.clients[delivery.clientId]?.latitude,
-                  account.clients[delivery.clientId]?.longitude,
-                ),
-              )
-            : computedMapsUrls),
-        ].join('\n\n'),
-        'text/plain',
-      );
+  async function exportRoutePdf() {
+    try {
+      if (!route.length) throw new Error('Adicione entregas pendentes para montar a rota.');
+      await exportPdf(`rota-${date}.pdf`, routePdfHtml(account, route, date, gpsApp));
+      notify('PDF da rota preparado para salvar ou compartilhar.');
     } catch (e) {
       notify((e as Error).message);
     }
@@ -335,7 +328,22 @@ export function Deliveries({ edit, notify }: PageProps) {
                   }
                 }}
               />
-              <Button label="Exportar rota" icon={Download} secondary small onPress={exportRoute} />
+              <Button
+                label="Exportar planilha (CSV)"
+                icon={Download}
+                secondary
+                small
+                disabled={!route.length}
+                onPress={exportRouteSpreadsheet}
+              />
+              <Button
+                label="Exportar PDF"
+                icon={Download}
+                secondary
+                small
+                disabled={!route.length}
+                onPress={exportRoutePdf}
+              />
             </View>
 
             <ThemedText size={12} muted>
